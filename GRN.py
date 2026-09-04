@@ -145,7 +145,7 @@ def develop(G: np.ndarray, B: np.ndarray, cfg: Config, T: int) -> np.ndarray:
 
 def handle_develop(G: np.ndarray, B: np.ndarray, cfg: Config, induction: bool = False) -> np.ndarray:
     
-    if cfg.induction:
+    if induction:
         
         return develop(G, B, cfg, cfg.r_T)
 

@@ -153,13 +153,13 @@ def plastic_search(
         "B": B,
         "P": P,
         "F": float(F),
-        "avg_accept_F": float(np.mean(accepted_fitnesses)),
-        "avg_accept_E": float(np.mean(accepted_energies)), 
-        "std_accept_E": float(np.mean(accepted_energies)), 
-        "avg_accept_w": float(np.mean(accepted_energies_)), 
-        "std_accept_w": float(np.mean(accepted_energies_)), 
-        "auc": float(np.mean(curve.mean)),                 # area under the ABSOLUTE curve
-        "acceptance_rate": accepted / cfg.M,        # collapse signature (5.6)
+        "avg_accept_F": float(np.mean(accepted_fitnesses)) if accepted_fitnesses else float(0),
+        "avg_accept_E": float(np.mean(accepted_energies)) if accepted_energies else float(0), 
+        "std_accept_E": float(np.std(accepted_energies)) if accepted_energies else float(0), 
+        "avg_accept_w": float(np.mean(accepted_energies_)) if accepted_energies_ else float(0), 
+        "std_accept_w": float(np.std(accepted_energies_)) if accepted_energies_ else float(0), 
+        "auc": float(np.mean(curve)) if curve else float(0),                 # area under the ABSOLUTE curve
+        "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else float(0),        # collapse signature (5.6)
         "dE_mean": np.array(dE_mean),               # log these: drift is the
         "dE_std": np.array(dE_std),                 # early warning signal
         "tau": np.array(taus),

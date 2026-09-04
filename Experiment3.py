@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
 
     # Generate the starting profile (Constant used for all interaction matricies)
-    G = np.randon.uniform(low = -1.0, high = 1.0, size = base.N)
+    G = np.random.uniform(low = -1.0, high = 1.0, size = base.N)
     
 
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         search_data = []
 
         # Develop the Phenotype as the base for the plastic search
-        P = handle_develop(G, B, cfg, induction = False)
+        P = handle_develop(G, B, base, induction = False)
 
 
         # Run the Plastic search for a sweep of magnitudes and energy gate protocols
@@ -120,161 +120,13 @@ if __name__ == "__main__":
                 row_data.append(history["std_accept_w"])
 
 
+                # Collect the row data
+                search_data.append(row_data) 
+
+
         # Display the results of the experiment and analysis in a table
         create_plastic_search_table(COLUMN_TITLES, search_data, interaction_type, OUTPUT)
 
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-    
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-    
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-    
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-    
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-    
-
-
-
-    # !-- Appropriate Interactions --!
-
-    # Test the energy gate on the Plastic search function (using appropriate interactions)
-
-    # Set-up
-    rng = make_rng(base.seed)
-    B = appropriate_interactions(cfg = base, rng = rng, S = base.target, inappropriate = False, normalise = base.interactions_norm)
-    interaction_type = "appropriate interactions"
-
-    # Handle the output folder
-    OUTPUT = os.path.join(base.figures_output or ".", f"plastic_search_table_{interaction_type}.png")
-    os.makedirs(base.figures_output, exist_ok = True)
-
-    # Run the experiment
-    _experiment3()
-    
 
 
 
