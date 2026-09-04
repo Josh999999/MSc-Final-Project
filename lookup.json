@@ -1,0 +1,17 @@
+[
+    {
+        "N": "Size of the Phenotype (Number of Genes)",
+        "X": "Number of Target Phenotypes",
+        "B": "Interaction matrix",
+        "M": "Number of Mutation attempts allowed for the Plastic Induction process",
+        "E": "Energy of a Phenotype",
+        "F": "Fitness of a Phenotype",
+        "P": "Phenotype",
+        "G": "Genotype",
+        "S": "Target Phenotypes",
+        "Sk": "Current Target Phenotype",
+        "T": "Number of Developmental time steps",
+        "Y": "Magnitude of the Interaction matrix",
+        "V": "Number of columns in a grid plot"
+    }
+]
