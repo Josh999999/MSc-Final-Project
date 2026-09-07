@@ -4,7 +4,7 @@ import numpy as np
 
 """Local Imports"""
 from Config import Config
-from GRN import evaluate_fitness, sigmoid_sigma
+from GRN import evaluate_fitness, sigmoid_sigma, _cos
 from Mutations import compute_mutation
 
 
@@ -90,6 +90,23 @@ def energy_gate(F_try: float, F: float, w: float, cfg: Config, rng: np.random.Ge
 
 
 
+def phenotype_alignment(P: np.ndarray, B: np.ndarray, cfg: Config) -> float:
+    """cos(P (x) P, B) over masked entries: how strongly B encodes P."""
+    P = np.asarray(P, dtype = float)
+    B = np.asarray(B, dtype = float)
+ 
+    PP = np.outer(P, P).copy()
+    np.fill_diagonal(PP, 0.0)
+ 
+    num = float(PP[cfg.mask] @ B[cfg.mask])
+    den = float(np.linalg.norm(PP[cfg.mask]) * np.linalg.norm(B[cfg.mask]))
+ 
+ 
+    return num / den if den > 0 else 0.0
+ 
+ 
+ 
+ 
 def plastic_search(
         B: np.ndarray,
         P: np.ndarray,
@@ -99,56 +116,63 @@ def plastic_search(
     ) -> dict:
     S = cfg.target if S is None else np.asarray(S, dtype = float)
     P = np.asarray(P, dtype = float).copy()        
-
+ 
     F = evaluate_fitness(P, S, cfg)
-
+ 
     curve = [F]
+    align_curve = [phenotype_alignment(P, B, cfg)]
     accepted = 0
     dE_mean, dE_std, taus = [], [], []
     accepted_fitnesses = []
     accepted_energies = []
     accepted_energies_ = []
-
-
+    accepted_alignments = []
+ 
+ 
     for _ in range(cfg.M):
-
+ 
         h = B @ P                                   
         
         step = cfg.c * (np.linalg.norm(P) / np.sqrt(cfg.N)) if cfg.relative_mutation else cfg.c
         step = max(step, 1e-12)
-
+ 
         # Pool statistics over every single-gene move of the nominal size.
         dE_pool = candidate_energies(h, step, P, cfg.normalise_energy)
         tau = adaptive_tau(dE_pool, cfg)
-
+ 
         dE_mean.append(float(np.mean(dE_pool)))
         dE_std.append(float(np.std(dE_pool)))
         taus.append(tau)
-
-
+ 
+ 
         P_try, _ = compute_mutation(P, cfg, rng)
-
+ 
         dE = energy(P_try, B, cfg.normalise_energy) - energy(P, B, cfg.normalise_energy)
 
+        # Test the alignment of the plastic Phenotype
+        alignment = phenotype_alignment(P, B, cfg)         
+ 
         F_try = evaluate_fitness(P_try, S, cfg)
         w = sigmoid_sigma(-dE / tau)
-
-
+ 
+ 
         # Apply the Fitness gate with Energy
         accept = energy_gate(F_try, F, w, cfg, rng)
-
-
+ 
+ 
         if accept:
             P, F = P_try, F_try
             accepted += 1
             accepted_fitnesses.append(F_try)
             accepted_energies.append(dE)
-            accepted_energies_.append(w)
-
-
+            accepted_energies_.append(w)    
+            accepted_alignments.append(alignment)
+ 
+ 
         curve.append(F)
-
-
+        align_curve.append(alignment)
+ 
+ 
     return {
         "B": B,
         "P": P,
@@ -158,9 +182,16 @@ def plastic_search(
         "std_accept_E": float(np.std(accepted_energies)) if accepted_energies else float(0), 
         "avg_accept_w": float(np.mean(accepted_energies_)) if accepted_energies_ else float(0), 
         "std_accept_w": float(np.std(accepted_energies_)) if accepted_energies_ else float(0), 
+        "avg_accept_A": float(np.mean(accepted_alignments)) if accepted_alignments else float(0),
+        "std_accept_A": float(np.mean(accepted_alignments)) if accepted_alignments else float(0), 
         "auc": float(np.mean(curve)) if curve else float(0),                 # area under the ABSOLUTE curve
         "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else float(0),        # collapse signature (5.6)
         "dE_mean": np.array(dE_mean),               # log these: drift is the
         "dE_std": np.array(dE_std),                 # early warning signal
         "tau": np.array(taus),
+        "curve": curve,
+        "align_curve": np.asarray(align_curve, dtype = float),
+        "align_start": float(align_curve[0]),
+        "align_end": float(align_curve[-1]),
+        "align_auc": float(np.mean(align_curve)),
     }
