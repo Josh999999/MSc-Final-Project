@@ -27,7 +27,7 @@ DEVELOPMENT_SIGMOIDS = ("tanh", "linear")
 MUTATION_TYPES = ("single-gene", "phenotype", "perturbation")
 MUTATION_OPERATIONS = ("additive", "multiplicative")
 INDUCTION_PROCESSES = ("plastic", "hopfield", "r-round")
-ENERGY_GATES = ("or", "and", "harsh")
+ENERGY_GATES = ("or", "and", "harsh", "deterministic")
 
 
 
@@ -94,8 +94,9 @@ class Config:
     induction: bool = False
     induction_process: str = "plastic"      # "plastic", "hopfield" or "r-round"
     induction_inplace: bool = False         # induction based learning is performed inplace
-    energy_gate: str = "or"                 # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", or "harsh"
-    energy_limit: float = 0.6               # Maximum amount sigmoid energy needs to achieve when `energy_gate = "harsh"` sigma(-dE/tau)
+    energy_gate: str = "or"                 # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", "harsh" or "deterministic"
+    energy_limit: float = 0.5               # Maximum amount sigmoid energy needs to achieve when `energy_gate = "harsh"` sigma(-dE/tau)
+    limit_slack: float = 0.01               # Maximum amount of slack to be given in the randomised scaling of the energy limit boundry inside the plastic selection proccess
     M: int = 50                             # mutation attempts per plastic search
     c: float = 0.1                          # single-gene mutation size
     c_tau: float = 1.0                      # tau = c_tau * std(dE) over the pool

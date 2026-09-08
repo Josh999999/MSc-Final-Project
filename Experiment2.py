@@ -33,16 +33,8 @@ if __name__ == "__main__":
         result = fitness_surface(cfg, rng, n_seeds = 8)
         surfaces.append(result)
 
-        print(
-            f"Y={Y:>4}  tenet1 err {result['max_tenet1_error']:.2e}  "
-            f"tenet2 err {result['max_tenet2_error']:.2e}  "
-            f"fitness range [{result['Z'].min():+.2f}, {result['Z'].max():+.2f}]"
-        )
-
-
     # Handle the output folder
     OUTPUT = os.path.join(cfg.figures_output or ".", "tenet_surface_induction.png")
     os.makedirs(cfg.figures_output, exist_ok = True)
 
     plot_fitness_surface(surfaces, saveloc = OUTPUT)
-    print("wrote tenet_surface_induction.png")

@@ -55,6 +55,7 @@ def r_round_induction(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, 
         "B": B,
         "P": P,
         "F": float(F),
+        "F_change": float(F - curve[-1]),
         "curve": curve,
         "auc": float(curve.mean()),     
     }

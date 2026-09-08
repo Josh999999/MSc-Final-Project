@@ -13,7 +13,7 @@ from Data import S1
 from Interactions import (appropriate_interactions, noisy_appropriate_interactions,
                           random_interactions, modular_interactions,
                           modular_appropriate_interactions)
-from GRN import sparse_topology
+from GRN import sparse_topology, diag_mask
 from Plastic_Induction import plastic_search
 from GRN import handle_develop
  
@@ -21,17 +21,19 @@ from GRN import handle_develop
  
  
 def _fmt(v):
-    """Readable in a table cell: keep small magnitudes visible."""
  
     if isinstance(v, str):
  
         return v
+
  
     v = float(v)
+
  
     if v == 0.0:
  
         return "0"
+
  
     if abs(v) < 1e-3 or abs(v) >= 1e4:
  
@@ -126,6 +128,8 @@ def create_plastic_search_table(column_tites: np.ndarray, row_results: np.ndarra
  
  
  
+
+
  
  
  
@@ -146,7 +150,6 @@ if __name__ == "__main__":
         "Energy\ngate",
         "Acceptance\nrate",
         "AUC",
-        "Accepted\navg. F",
         "F\nchange",
         "Accepted\navg. dE",
         "Accepted\nstd. dE",
@@ -201,13 +204,12 @@ if __name__ == "__main__":
                 row_data.append(gate)
                 row_data.append(f"{history['acceptance_rate'] * 100:.1f}%") # Convert to a percentage in a string
                 row_data.append(history["auc"])
-                row_data.append(history["avg_accept_F"])
-                row_data.append(history["F"] - history["curve"][0])
+                row_data.append(history["F_change"])
                 row_data.append(history["avg_accept_E"])
                 row_data.append(history["std_accept_E"])
                 row_data.append(history["avg_accept_w"])
                 row_data.append(history["std_accept_w"])
-                row_data.append(history["align_end"] - history["align_start"])
+                row_data.append(history["align_change"])
                 row_data.append(history["avg_accept_A"])
                 row_data.append(history["std_accept_A"])
  
@@ -237,6 +239,10 @@ if __name__ == "__main__":
         """Builder that keeps the default (dense) mask."""
  
         def wrapped(cfg, rng):
+
+            if cfg.self_interactions:
+                cfg = with_mask(cfg, diag_mask(cfg.N))
+
  
             return build(cfg, rng), cfg
  
