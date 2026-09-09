@@ -118,7 +118,6 @@ def plastic_search(
         cfg: Config,
         rng: np.random.Generator,
         S: np.ndarray = None,
-        limit_return: bool = False
     ) -> dict:
     S = cfg.target if S is None else np.asarray(S, dtype = float)
     P = np.asarray(P, dtype = float).copy()        
@@ -171,7 +170,6 @@ def plastic_search(
             A = alignment
             accepted += 1
             accepted_energies.append(dE)
-            accepted_energies_.append(w)    
             accepted_alignments.append(alignment)
  
         else:
@@ -180,39 +178,54 @@ def plastic_search(
  
         curve.append(F)
         align_curve.append(A)
+
+    
+    curve = np.asarray(curve, dtype = float)
+    align_curve = np.asarray(align_curve, dtype = float)
  
 
+    return B, P, F, curve, align_curve, accepted_energies, accepted_alignments, accepted
+
+
+
+
+def plastic_search_return_wrapper(
+        B: np.ndarray,
+        P: np.ndarray,
+        cfg: Config,
+        rng: np.random.Generator,
+        S: np.ndarray = None,
+        limit_return: bool = False
+    ) -> dict:
+
+    B, P, F, curve, align_curve, accepted_energies, accepted_alignments, accepted = plastic_search(B, P, cfg, rng, S)
+
+
     if limit_return:
-
-        return {
-            "P": P,
-            "F": float(F),
-            "auc": float(np.mean(curve)) if curve else float(0),                 # area under the ABSOLUTE curve
-            "F_change": float(curve[-1] - curve[0]),
-            "align_change": float(align_curve[-1] - align_curve[0]),
-        }
     
-    else:
-
         return {
-            "B": B,
             "P": P,
-            "F": float(F),
-            "F_change": float(curve[-1] - curve[0]),
-            "avg_accept_E": float(np.mean(accepted_energies)) if accepted_energies else float(0), 
-            "std_accept_E": float(np.std(accepted_energies)) if accepted_energies else float(0), 
-            "avg_accept_w": float(np.mean(accepted_energies_)) if accepted_energies_ else float(0), 
-            "std_accept_w": float(np.std(accepted_energies_)) if accepted_energies_ else float(0), 
-            "avg_accept_A": float(np.mean(accepted_alignments)) if accepted_alignments else float(0),
-            "std_accept_A": float(np.std(accepted_alignments)) if accepted_alignments else float(0), 
-            "auc": float(np.mean(curve)) if curve else float(0),                 # area under the ABSOLUTE curve
-            "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else float(0),        # collapse signature (5.6)
-            "dE_mean": np.array(dE_mean),               # log these: drift is the
-            "dE_std": np.array(dE_std),                 # early warning signal
-            "tau": np.array(taus),
-            "curve": curve,
-            "align_curve": np.asarray(align_curve, dtype = float),
-            "align_start": float(align_curve[0]),
-            "align_end": float(align_curve[-1]),
-            "align_change": float(align_curve[-1] - align_curve[0]),
+            "F": F,
+            "auc": np.mean(curve) if curve.size else 0.0,                 # area under the ABSOLUTE curve
+            "F_change": curve[-1] - curve[0],
+            "align_change": align_curve[-1] - align_curve[0],
         }
+
+
+    return {
+        "B": B,
+        "P": P,
+        "F": F,
+        "F_change": curve[-1] - curve[0],
+        "avg_accept_E": np.mean(accepted_energies) if accepted_energies.size else 0.0, 
+        "std_accept_E": np.std(accepted_energies) if accepted_energies.size else 0.0, 
+        "avg_accept_A": np.mean(accepted_alignments) if accepted_alignments.size else 0.0,
+        "std_accept_A": np.std(accepted_alignments) if accepted_alignments.size else 0.0, 
+        "auc": np.mean(curve) if curve.size else 0.0,                 # area under the ABSOLUTE curve
+        "acceptance_rate": accepted / cfg.M if accepted and cfg.M else 0.0,        # collapse signature (5.6)
+        "curve": curve,
+        "align_curve": align_curve,
+        "align_start": align_curve[0],
+        "align_end": align_curve[-1],
+        "align_change": align_curve[-1] - align_curve[0],
+    }

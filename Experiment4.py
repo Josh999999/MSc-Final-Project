@@ -23,7 +23,6 @@ if __name__ == "__main__":
         ("acceptance_rate", "Acceptance rate",                            "sequential"),
         ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
         ("avg_accept_A",    "Mean alignment of accepted phenotypes",      "sequential"),
-        ("avg_accept_w",    "Mean energy acceptance probability w",       "sequential"),
     )
  
     base = Config(

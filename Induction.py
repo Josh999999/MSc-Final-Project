@@ -4,8 +4,8 @@ import numpy as np
 
 """Local Imports"""
 from Config import Config
-from Plastic_Induction import plastic_search
-from R_round_induction import r_round_induction
+from Plastic_Induction import plastic_search_return_wrapper
+from R_round_induction import r_round_induction_return_wrapper
 from GRN import evaluate_fitness
 
 
@@ -16,7 +16,8 @@ def handle_induction(
         G: np.ndarray,
         cfg: Config,
         rng: np.random.Generator,
-        S: np.ndarray = None
+        S: np.ndarray = None,
+        limit_return: bool = True
     ) -> dict[any]:
 
     """
@@ -37,11 +38,11 @@ def handle_induction(
 
     if induction_process_ == "plastic":
 
-        history = plastic_search(B, P, cfg, rng, S)
+        history = plastic_search_return_wrapper(B, P, cfg, rng, S, limit_return)
 
     elif induction_process_ == "r-round":
 
-        history = r_round_induction(B, P, G, cfg, rng, S)
+        history = r_round_induction_return_wrapper(B, P, G, cfg, rng, S, limit_return)
 
     elif induction_process_ == "hopfield":
 

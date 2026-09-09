@@ -1,10 +1,7 @@
 """External Imports (Libraries and APIs)"""
 from dataclasses import replace
-import numpy as np
 import os  
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import numpy as np
  
  
 """Local Imports"""
@@ -14,7 +11,7 @@ from Interactions import (appropriate_interactions, noisy_appropriate_interactio
                           random_interactions, modular_interactions,
                           modular_appropriate_interactions)
 from GRN import sparse_topology, diag_mask
-from Plastic_Induction import plastic_search
+from Plastic_Induction import plastic_search_return_wrapper
 from GRN import handle_develop
 from Plotting import create_search_table
  
@@ -53,8 +50,7 @@ if __name__ == "__main__":
     )
  
     # Generate the starting profile (Constant used for all interaction matricies)
-    rng = make_rng(base.seed)
-    G = rng.uniform(low = -1, high = 1, size = base.N)
+    G = make_rng(base.seed).uniform(low = -1, high = 1, size = base.N)
     
  
  
@@ -62,7 +58,7 @@ if __name__ == "__main__":
     """Test the Plastic search for a range of different initialised interaction matricies"""
  
     # Replicable functionality for running the experiment
-    def _experiment3(base):
+    def _experiment3(base: Config, n_seeds: int = 8):
  
         # Save the search data
         search_data = []
@@ -81,30 +77,47 @@ if __name__ == "__main__":
             for gate in ENERGY_GATES:
  
                 # Generates three new rows in the table for each magntiude Y
-                row_data = []
- 
+                row_data = [Y, gate]
+                row_measurements = np.asarray([0] * (len(COLUMN_TITLES) - 2), dtype = float)
+
                 # Reset the Energy gate
                 cfg = replace(cfg, energy_gate = gate)
+
+
+                for i in range(0, n_seeds):
  
-                # Perform the plastic search - This search doesn't alter B
-                # Fresh stream per gate, so the gates are compared on identical draws.
-                history = plastic_search(B = BY, P = P, cfg = cfg, rng = make_rng(cfg.seed), limit_return = False)
- 
- 
-                # Save the search data for the current row
-                row_data.append(Y)
-                row_data.append(gate)
-                row_data.append(f"{history['acceptance_rate'] * 100:.1f}%") # Convert to a percentage in a string
-                row_data.append(history["auc"])
-                row_data.append(history["F_change"])
-                row_data.append(history["avg_accept_E"])
-                row_data.append(history["std_accept_E"])
-                row_data.append(history["avg_accept_w"])
-                row_data.append(history["std_accept_w"])
-                row_data.append(history["align_change"])
-                row_data.append(history["avg_accept_A"])
-                row_data.append(history["std_accept_A"])
- 
+                    # Perform the plastic search - This search doesn't alter B
+                    # Fresh stream per gate, so the gates are compared on identical draws.
+                    history = plastic_search_return_wrapper(B = BY, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = False)    
+    
+                    # Save the search data for the current row
+                    data = []
+                    data.append(history['acceptance_rate']) # Convert to a percentage in a string
+                    data.append(history["auc"])
+                    data.append(history["F_change"])
+                    data.append(history["avg_accept_E"])
+                    data.append(history["std_accept_E"])
+                    data.append(history["avg_accept_w"])
+                    data.append(history["std_accept_w"])
+                    data.append(history["align_change"])
+                    data.append(history["avg_accept_A"])
+                    data.append(history["std_accept_A"])
+
+                    row_measurements += np.asarray(data, dtype = float)
+
+
+                # Handle Inserting the measurements into the row as data
+
+                # Take the mean of measurements accumulated across seeds
+                row_measurements = row_measurements / n_seeds
+
+                # Configure the acceptance rate for percentage display
+                acceptance_rate = row_measurements[0]
+                row_measurements = list(row_measurements)
+                row_measurements[0] = f"{acceptance_rate * 100:.1f}%"
+
+                row_data = row_data + row_measurements
+
  
                 # Collect the row data
                 search_data.append(row_data) 

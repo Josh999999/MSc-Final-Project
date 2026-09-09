@@ -18,7 +18,7 @@ if __name__ == "__main__":
     #   diverging : signed quantity, centred on zero
     #   sequential: non-negative quantity
     MEASURES = (
-        ("auc",             "Plastic AUC (mean fitness over the search)", "sequential"),
+        ("auc_inner",             "Plastic AUC (mean fitness over the search)", "sequential"),
         ("F_change",        "Fitness change over the search",             "diverging"),
         ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
     )

@@ -1,10 +1,6 @@
 """External Imports (Libraries and APIs)"""
 from dataclasses import replace
-import numpy as np
 import os  
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
  
  
 """Local Imports"""
@@ -14,7 +10,7 @@ from Interactions import (appropriate_interactions,
                           random_interactions)
 from GRN import sparse_topology, masked_matrix, diag_mask
 from Interactions import adjust_interaction_magnitude
-from Plastic_Induction import plastic_search
+from Plastic_Induction import plastic_search_return_wrapper
 from GRN import handle_develop
 from Plotting import create_search_table
  
@@ -114,7 +110,7 @@ if __name__ == "__main__":
                 for i in range(0, n_seeds):
 
                     # Perform the plastic search - This search doesn't alter B; Fresh stream per gate, so the gates are compared on identical draws.
-                    history = plastic_search(B = BK, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = True)
+                    history = plastic_search_return_wrapper(B = BK, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = True)
                     a += history[measurement]
 
 

@@ -30,6 +30,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
     interaction_developments = []
     recorded_gens = []
+    native_fitness = []
+    plastic_fitness = []
 
     ei = int(rng.integers(M))
     P = handle_develop(G, B, cfg, induction = False)
@@ -40,19 +42,38 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     F = 0
     B_ind = None
 
+
+
     
-    if cfg.induction:
-        history = handle_induction(B, P, G, cfg, rng, S[ei])
-        F = history["auc"]
-        B_ind = history["B"]
+    """ Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison """
+    def induction_switch():
+        B_ind = None
 
-    else:
-        F = evaluate_fitness(P, S[ei], cfg)
+    
+        if cfg.induction:
+            history = handle_induction(B, P, G, cfg, rng, S[ei])
+            F = history["auc"]
+            B_ind = history["B"]
+
+            # Log the linear progression of fitness curve
+            native_fitness.append(history['curve'][0])
+            plastic_fitness.append(history['curve'][-1])
+
+        else:
+            F = evaluate_fitness(P, S[ei], cfg)
 
 
-    # Re-assign the interaction matrix with the induction vairant if the Baldwin effect is not active
-    if cfg.induction and not cfg.baldwin_effect:
-        B[...] = B_ind
+        # Re-assign the interaction matrix with the induction vairant if the Baldwin effect is not active
+        if cfg.induction and not cfg.baldwin_effect:
+            B[...] = B_ind
+
+
+        return F
+
+
+
+    # Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison
+    F = induction_switch()
 
 
     # Loop through the generations
@@ -61,7 +82,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
         if M > 1 and gen > 0 and gen % cfg.switch_every == 0:
             ei = int(rng.integers(M))
-            F = evaluate_fitness(P, S[ei], cfg)
+            F = induction_switch()
 
 
         # Create the mutated model for comparison
@@ -95,11 +116,12 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
 
         # Handle Induction
+        history = None
+        
         if cfg.induction:
             history = handle_induction(B, P_mut, G, cfg, rng, S[ei])
             F_mut = history["auc"]
             B_ind = history["B"]
-
         else:
             F_mut = evaluate_fitness(P_mut, S[ei], cfg)
 
@@ -117,6 +139,10 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
                 B[...] = B_ind
 
             G, P, F = G_mut, P_mut, F_mut
+
+            # Log the linear progression of fitness curve
+            native_fitness.append(history['curve'][0])
+            plastic_fitness.append(history['curve'][-1])
 
         elif undo is not None:
             idx, mirror, deltas, mdeltas = undo
