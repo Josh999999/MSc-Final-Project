@@ -67,31 +67,69 @@ def plot_measure_surfaces(
         saveloc: str = "tenet_measure.png",
         label_measure: str = "measure",
         scale: str = "sequential",
-        subtitle: str = None
+        subtitle: str = None,
+        colour_scale: str = "percentile",
+        clip_percentile: float = 98.0
     ):
     """
     Panels of heatmaps over the two-tenet space, one panel per magnitude.
  
-    The colour range is taken from the DATA, shared across the panels so they
-    stay comparable.  A fixed [-1, 1] range would flatten measures such as
-    align_change (order 1e-3) into a single colour.
+    colour_scale:
+      "percentile" (default) -- clip the range at clip_percentile of |Z| so a
+                                single extreme cell cannot flatten the rest of
+                                the map to one colour.  Cells beyond the clip
+                                are drawn at the end colour and the colourbar
+                                is marked as clipped.
+      "symlog"                -- symmetric log scaling, for signed measures
+                                spanning several orders of magnitude.
+      "linear"                -- raw min/max (the old behaviour).
+ 
+    A fixed [-1, 1] range, or a raw min/max dominated by one outlier, hides the
+    genuine gradient across the rest of the space.
     """
+    import matplotlib.colors as mcolors
+ 
     n = len(surfaces)
+    allZ = np.concatenate([np.asarray(s["Z"]).ravel() for s in surfaces])
  
-    lo = min(float(np.nanmin(s["Z"])) for s in surfaces)
-    hi = max(float(np.nanmax(s["Z"])) for s in surfaces)
+    diverging = (scale == "diverging")
+    cmap = "RdBu_r" if diverging else "viridis"
+ 
+    lo, hi = float(np.nanmin(allZ)), float(np.nanmax(allZ))
+    clipped = False
+    norm = None
  
  
-    if scale == "diverging":
-        # Centre a signed quantity on zero so the sign is readable.
-        m = max(abs(lo), abs(hi)) or 1.0
-        vmin, vmax, cmap = -m, m, "RdBu_r"
+    if colour_scale == "symlog":
+        m = float(np.nanmax(np.abs(allZ))) or 1.0
+        small = np.abs(allZ)[np.abs(allZ) > 0]
+        lin = float(np.percentile(small, 25)) if small.size else m / 1e3
+        norm = mcolors.SymLogNorm(linthresh = max(lin, m / 1e6), vmin = -m if diverging else lo, vmax = m)
+ 
+    elif colour_scale == "percentile":
+ 
+        if diverging:
+            m = float(np.percentile(np.abs(allZ), clip_percentile)) or 1.0
+            vmin, vmax = -m, m
+ 
+        else:
+            vmin = float(np.percentile(allZ, 100.0 - clip_percentile))
+            vmax = float(np.percentile(allZ, clip_percentile))
+ 
+ 
+            if vmax == vmin:
+                vmax = vmin + 1e-12
+ 
+ 
+        clipped = (lo < vmin) or (hi > vmax)
  
     else:
-        if hi == lo:
-            hi = lo + 1e-12
+        if diverging:
+            m = max(abs(lo), abs(hi)) or 1.0
+            vmin, vmax = -m, m
  
-        vmin, vmax, cmap = lo, hi, "viridis"
+        else:
+            vmin, vmax = lo, (hi if hi != lo else lo + 1e-12)
  
  
     fig, axes = plt.subplots(1, n, figsize = (3.9 * n, 4.2), squeeze = False)
@@ -100,10 +138,17 @@ def plot_measure_surfaces(
     for ax, s in zip(axes[0], surfaces):
         a1, a2 = s["a1_grid"], s["a2_grid"]
  
-        im = ax.imshow(
-            s["Z"], origin = "lower", cmap = cmap, vmin = vmin, vmax = vmax,
-            extent = [a1[0], a1[-1], a2[0], a2[-1]], aspect = "auto"
-        )
+        kw = dict(origin = "lower", cmap = cmap,
+                  extent = [a1[0], a1[-1], a2[0], a2[-1]], aspect = "auto")
+ 
+ 
+        if norm is not None:
+            im = ax.imshow(s["Z"], norm = norm, **kw)
+ 
+        else:
+            im = ax.imshow(s["Z"], vmin = vmin, vmax = vmax, **kw)
+ 
+ 
         ax.axhline(0, color = "k", lw = 0.5, alpha = 0.4)
         ax.axvline(0, color = "k", lw = 0.5, alpha = 0.4)
  
@@ -118,10 +163,21 @@ def plot_measure_surfaces(
             ax.set_yticklabels([])
  
  
+    cbar_label = label_measure
+ 
+ 
+    if clipped:
+        cbar_label = f"{label_measure}\n(colour clipped at {clip_percentile:g}th pct; full range {lo:+.3g} to {hi:+.3g})"
+ 
+    elif colour_scale == "symlog":
+        cbar_label = f"{label_measure}  (symlog)"
+ 
+ 
     fig.colorbar(im, ax = axes[0].tolist(), fraction = 0.025, pad = 0.02,
-                 label = label_measure)
+                 label = cbar_label)
  
     title = f"{label_measure} over the two-tenet space"
+ 
  
     if subtitle:
         title = f"{title}\n{subtitle}"
@@ -130,4 +186,105 @@ def plot_measure_surfaces(
     fig.suptitle(title, fontsize = 12, y = 1.06)
     fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
+
+
+
+
+def _fmt(v):
  
+    if isinstance(v, str):
+ 
+        return v
+
+ 
+    v = float(v)
+
+ 
+    if v == 0.0:
+ 
+        return "0"
+
+ 
+    if abs(v) < 1e-3 or abs(v) >= 1e4:
+ 
+        return f"{v:.2e}"
+ 
+ 
+    return f"{v:.4f}"
+ 
+ 
+ 
+ 
+def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_loc: str, title: str):
+ 
+    n_rows = len(row_results)
+    n_cols = len(column_tites)
+ 
+    # Wide enough for the headers, tall enough for every row.
+    fig, ax = plt.subplots(figsize = (2.05 * n_cols, 0.62 * n_rows + 1.6))
+ 
+    tbl = ax.table(
+        cellText = [[_fmt(v) for v in r] for r in row_results],
+        colLabels = column_tites,
+        loc = "center",
+        cellLoc = "center"
+    )
+ 
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(11)
+    tbl.scale(1, 2.3)
+ 
+ 
+    # Grey backdrop on the header and on the two repeated key columns
+    # (magnitude and energy gate), which label the block structure rather
+    # than carrying results.
+    KEY_COLS = (0, 1)
+    HEADER_BG = "#d0d0d0"
+    KEY_BG = "#ececec"
+ 
+    for (row, col), cell in tbl.get_celld().items():
+ 
+        cell.set_linewidth(0.6)
+        cell.PAD = 0.32                      # more breathing room inside a cell
+ 
+        # Slight bold everywhere; the header and key columns stay full bold.
+        cell.set_text_props(weight = "semibold")
+ 
+ 
+        if row == 0:
+            cell.set_text_props(weight = "bold", wrap = True)
+            cell.set_facecolor(HEADER_BG)
+            cell.set_height(cell.get_height() * 2.6)
+ 
+        elif col in KEY_COLS:
+            cell.set_facecolor(KEY_BG) 
+            cell.set_text_props(weight = "bold")
+ 
+ 
+    tbl.auto_set_column_width(col = list(range(n_cols)))
+ 
+    # auto_set_column_width packs the columns tight; widen them for legibility.
+    COL_PAD = 1.55
+    for (row, col), cell in tbl.get_celld().items():
+        cell.set_width(cell.get_width() * COL_PAD)
+ 
+ 
+    ax.set_title(title, pad = 8, fontweight = "bold", fontsize = 16) 
+ 
+    ax.axis("off")
+    fig.subplots_adjust(top = 0.9)
+ 
+    # Underline the magnitude entries.  matplotlib text has no underline
+    # attribute and mathtext has no underline command, so use the Unicode
+    # combining low line: reliable, and needs no cell geometry (which is not
+    # settled until after layout and shifts when the figure is re-laid out).
+    for row in range(1, n_rows + 1):
+        cell = tbl[row, 0]
+        label = cell.get_text().get_text()
+ 
+        if label and "\u0332" not in label:
+            cell.get_text().set_text("".join(ch + "\u0332" for ch in label))
+ 
+ 
+    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
+    plt.close(fig)

@@ -99,7 +99,8 @@ def noisy_appropriate_interactions(
         cfg: Config,
         rng: np.random.Generator,
         S: np.ndarray = None,
-        normalise: bool = None
+        normalise: bool = None,
+        inappropriate: bool = False
     ) -> np.ndarray:
  
     S = cfg.target if S is None else np.asarray(S, dtype = float)
@@ -114,7 +115,11 @@ def noisy_appropriate_interactions(
  
  
     signs = signs * np.where(flip, -1.0, 1.0)
- 
+
+
+    if inappropriate:
+        signs = -signs
+
  
     if cfg.uniform:
         B = signs.astype(float)

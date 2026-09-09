@@ -16,115 +16,7 @@ from Interactions import (appropriate_interactions, noisy_appropriate_interactio
 from GRN import sparse_topology, diag_mask
 from Plastic_Induction import plastic_search
 from GRN import handle_develop
- 
- 
- 
- 
-def _fmt(v):
- 
-    if isinstance(v, str):
- 
-        return v
-
- 
-    v = float(v)
-
- 
-    if v == 0.0:
- 
-        return "0"
-
- 
-    if abs(v) < 1e-3 or abs(v) >= 1e4:
- 
-        return f"{v:.2e}"
- 
- 
-    return f"{v:.4f}"
- 
- 
- 
- 
-def create_plastic_search_table(column_tites: np.ndarray, row_results: np.ndarray, interaction_type: str, save_loc: str):
- 
-    n_rows = len(row_results)
-    n_cols = len(column_tites)
- 
-    # Wide enough for the headers, tall enough for every row.
-    fig, ax = plt.subplots(figsize = (2.05 * n_cols, 0.62 * n_rows + 1.6))
- 
-    tbl = ax.table(
-        cellText = [[_fmt(v) for v in r] for r in row_results],
-        colLabels = column_tites,
-        loc = "center",
-        cellLoc = "center"
-    )
- 
-    tbl.auto_set_font_size(False)
-    tbl.set_fontsize(11)
-    tbl.scale(1, 2.3)
- 
- 
-    # Grey backdrop on the header and on the two repeated key columns
-    # (magnitude and energy gate), which label the block structure rather
-    # than carrying results.
-    KEY_COLS = (0, 1)
-    HEADER_BG = "#d0d0d0"
-    KEY_BG = "#ececec"
- 
-    for (row, col), cell in tbl.get_celld().items():
- 
-        cell.set_linewidth(0.6)
-        cell.PAD = 0.32                      # more breathing room inside a cell
- 
-        # Slight bold everywhere; the header and key columns stay full bold.
-        cell.set_text_props(weight = "semibold")
- 
- 
-        if row == 0:
-            cell.set_text_props(weight = "bold", wrap = True)
-            cell.set_facecolor(HEADER_BG)
-            cell.set_height(cell.get_height() * 2.6)
- 
-        elif col in KEY_COLS:
-            # Bold both; underline the magnitude so the repeats read as blocks.
-            cell.set_facecolor(KEY_BG)
- 
- 
-            cell.set_text_props(weight = "bold")
- 
- 
-    tbl.auto_set_column_width(col = list(range(n_cols)))
- 
-    # auto_set_column_width packs the columns tight; widen them for legibility.
-    COL_PAD = 1.55
-    for (row, col), cell in tbl.get_celld().items():
-        cell.set_width(cell.get_width() * COL_PAD)
- 
- 
-    ax.set_title(
-        f"Effect of energy gates in the plastic search under {interaction_type}",
-        pad = 8, fontweight = "bold", fontsize = 16
-    )
- 
- 
-    ax.axis("off")
-    fig.subplots_adjust(top = 0.9)
- 
-    # Underline the magnitude entries.  matplotlib text has no underline
-    # attribute and mathtext has no underline command, so use the Unicode
-    # combining low line: reliable, and needs no cell geometry (which is not
-    # settled until after layout and shifts when the figure is re-laid out).
-    for row in range(1, n_rows + 1):
-        cell = tbl[row, 0]
-        label = cell.get_text().get_text()
- 
-        if label and "\u0332" not in label:
-            cell.get_text().set_text("".join(ch + "\u0332" for ch in label))
- 
- 
-    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
-    plt.close(fig)
+from Plotting import create_search_table
  
  
  
@@ -196,7 +88,7 @@ if __name__ == "__main__":
  
                 # Perform the plastic search - This search doesn't alter B
                 # Fresh stream per gate, so the gates are compared on identical draws.
-                history = plastic_search(B = BY, P = P, cfg = cfg, rng = make_rng(cfg.seed))
+                history = plastic_search(B = BY, P = P, cfg = cfg, rng = make_rng(cfg.seed), limit_return = False)
  
  
                 # Save the search data for the current row
@@ -219,7 +111,12 @@ if __name__ == "__main__":
  
  
         # Display the results of the experiment and analysis in a table
-        create_plastic_search_table(COLUMN_TITLES, search_data, interaction_type, OUTPUT)
+        create_search_table(
+            column_tites = COLUMN_TITLES, 
+            row_results = search_data, 
+            save_loc = OUTPUT, 
+            title = f"Effect of energy gates in the plastic search under {interaction_type}"
+        )
  
  
  
@@ -240,7 +137,7 @@ if __name__ == "__main__":
  
         def wrapped(cfg, rng):
 
-            if cfg.self_interactions:
+            if cfg.self_interaction:
                 cfg = with_mask(cfg, diag_mask(cfg.N))
 
  
@@ -261,7 +158,8 @@ if __name__ == "__main__":
         """
  
         def wrapped(cfg, rng):
-            sparse_cfg = with_mask(cfg, sparse_topology(cfg, rng))
+            mask = sparse_topology(cfg, rng)
+            sparse_cfg = with_mask(cfg, mask)
  
  
             return build(sparse_cfg, rng), sparse_cfg
@@ -286,12 +184,17 @@ if __name__ == "__main__":
                                                              normalise = cfg.interactions_norm))),
         ("noisy appropriate interactions",
             _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                   inappropriate = False,
+                                                                   normalise = cfg.interactions_norm))),
+        ("noisy inappropriate interactions",
+            _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                   inappropriate = True,
                                                                    normalise = cfg.interactions_norm))),
         ("random interactions",
             _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
                                                         normalise = cfg.interactions_norm))),
  
-        ("modular interactions",
+        ("modular random interactions",
             _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng,
                                                          normalise = cfg.interactions_norm))),
         ("modular appropriate interactions",
@@ -303,7 +206,7 @@ if __name__ == "__main__":
                                                                      inappropriate = True,
                                                                      normalise = cfg.interactions_norm))),
  
-        ("sparse interactions",
+        ("sparse random interactions",
             _sparse(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
                                                          normalise = cfg.interactions_norm))),
         ("sparse appropriate interactions",

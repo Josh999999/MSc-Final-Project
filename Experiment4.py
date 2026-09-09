@@ -1,7 +1,6 @@
 """External Imports (Libraries and APIs)"""
 from dataclasses import replace
 import os
-import numpy as np
  
  
 """Local Imports"""
@@ -9,7 +8,7 @@ from Config import Config, make_rng, ENERGY_GATES
 from Data import S1
 from Tenets import plastic_measure_surface
 from Plotting import plot_measure_surfaces
- 
+
  
  
  
@@ -32,7 +31,7 @@ if __name__ == "__main__":
         targets = S1,
         induction = True,
         induction_process = "plastic",
-        figures_output = "Experiment5",
+        figures_output = "Experiment4",
     )
  
     os.makedirs(base.figures_output, exist_ok = True)
@@ -53,7 +52,7 @@ if __name__ == "__main__":
                 # Same stream per panel so the panels are comparable.
                 result = plastic_measure_surface(
                     cfg, make_rng(cfg.seed),
-                    measure = key, n_seeds = 4, grid = 15
+                    measure = key, n_seeds = 8, grid = 15
                 )
                 surfaces.append(result)
  

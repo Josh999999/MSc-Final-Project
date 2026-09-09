@@ -77,9 +77,10 @@ def energy_gate(F_try: float, F: float, w: float, dE: float, cfg: Config, rng: n
             return (F_try >= F) and (rng.random() <= w)
         
         elif cfg.energy_gate == "harsh":
-            slack_limit = rng
+            slack = rng.uniform(0, cfg.limit_slack)
+
  
-            return (F_try >= F) and (cfg.energy_limit <= w)
+            return (F_try >= F) and (cfg.energy_limit - slack <= w)
 
         elif cfg.energy_gate == "deterministic":
 
@@ -100,8 +101,7 @@ def phenotype_alignment(P: np.ndarray, B: np.ndarray, cfg: Config) -> float:
     P = np.asarray(P, dtype = float)
     B = np.asarray(B, dtype = float)
  
-    PP = np.outer(P, P).copy()
-    np.fill_diagonal(PP, 0.0)
+    PP = np.outer(P, P)
  
     num = float(PP[cfg.mask] @ B[cfg.mask])
     den = float(np.linalg.norm(PP[cfg.mask]) * np.linalg.norm(B[cfg.mask]))
@@ -117,7 +117,8 @@ def plastic_search(
         P: np.ndarray,
         cfg: Config,
         rng: np.random.Generator,
-        S: np.ndarray = None
+        S: np.ndarray = None,
+        limit_return: bool = False
     ) -> dict:
     S = cfg.target if S is None else np.asarray(S, dtype = float)
     P = np.asarray(P, dtype = float).copy()        
@@ -180,26 +181,38 @@ def plastic_search(
         curve.append(F)
         align_curve.append(A)
  
- 
-    return {
-        "B": B,
-        "P": P,
-        "F": float(F),
-        "F_change": float(curve[-1] - curve[0]),
-        "avg_accept_E": float(np.mean(accepted_energies)) if accepted_energies else float(0), 
-        "std_accept_E": float(np.std(accepted_energies)) if accepted_energies else float(0), 
-        "avg_accept_w": float(np.mean(accepted_energies_)) if accepted_energies_ else float(0), 
-        "std_accept_w": float(np.std(accepted_energies_)) if accepted_energies_ else float(0), 
-        "avg_accept_A": float(np.mean(accepted_alignments)) if accepted_alignments else float(0),
-        "std_accept_A": float(np.std(accepted_alignments)) if accepted_alignments else float(0), 
-        "auc": float(np.mean(curve)) if curve else float(0),                 # area under the ABSOLUTE curve
-        "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else float(0),        # collapse signature (5.6)
-        "dE_mean": np.array(dE_mean),               # log these: drift is the
-        "dE_std": np.array(dE_std),                 # early warning signal
-        "tau": np.array(taus),
-        "curve": curve,
-        "align_curve": np.asarray(align_curve, dtype = float),
-        "align_start": float(align_curve[0]),
-        "align_end": float(align_curve[-1]),
-        "align_change": float(align_curve[-1] - align_curve[0]),
-    }
+
+    if limit_return:
+
+        return {
+            "P": P,
+            "F": float(F),
+            "auc": float(np.mean(curve)) if curve else float(0),                 # area under the ABSOLUTE curve
+            "F_change": float(curve[-1] - curve[0]),
+            "align_change": float(align_curve[-1] - align_curve[0]),
+        }
+    
+    else:
+
+        return {
+            "B": B,
+            "P": P,
+            "F": float(F),
+            "F_change": float(curve[-1] - curve[0]),
+            "avg_accept_E": float(np.mean(accepted_energies)) if accepted_energies else float(0), 
+            "std_accept_E": float(np.std(accepted_energies)) if accepted_energies else float(0), 
+            "avg_accept_w": float(np.mean(accepted_energies_)) if accepted_energies_ else float(0), 
+            "std_accept_w": float(np.std(accepted_energies_)) if accepted_energies_ else float(0), 
+            "avg_accept_A": float(np.mean(accepted_alignments)) if accepted_alignments else float(0),
+            "std_accept_A": float(np.std(accepted_alignments)) if accepted_alignments else float(0), 
+            "auc": float(np.mean(curve)) if curve else float(0),                 # area under the ABSOLUTE curve
+            "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else float(0),        # collapse signature (5.6)
+            "dE_mean": np.array(dE_mean),               # log these: drift is the
+            "dE_std": np.array(dE_std),                 # early warning signal
+            "tau": np.array(taus),
+            "curve": curve,
+            "align_curve": np.asarray(align_curve, dtype = float),
+            "align_start": float(align_curve[0]),
+            "align_end": float(align_curve[-1]),
+            "align_change": float(align_curve[-1] - align_curve[0]),
+        }

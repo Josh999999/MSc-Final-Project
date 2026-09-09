@@ -54,7 +54,7 @@ class Config:
     sigmoid: str = "tanh"                   # "tanh" or "linear"
     t1: float = 1.0
     t2: float = 0.2
-    T: int = 100                            # development time
+    T: int = 10                             # development time
     lr: float = 1.0                         # Hebbian learning rate
     
 
@@ -97,7 +97,7 @@ class Config:
     energy_gate: str = "or"                 # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", "harsh" or "deterministic"
     energy_limit: float = 0.5               # Maximum amount sigmoid energy needs to achieve when `energy_gate = "harsh"` sigma(-dE/tau)
     limit_slack: float = 0.01               # Maximum amount of slack to be given in the randomised scaling of the energy limit boundry inside the plastic selection proccess
-    M: int = 50                             # mutation attempts per plastic search
+    M: int = 20                             # mutation attempts per plastic search
     c: float = 0.1                          # single-gene mutation size
     c_tau: float = 1.0                      # tau = c_tau * std(dE) over the pool
     use_energy: bool = True                 # sigma(-dE/tau) inside the acceptance test
