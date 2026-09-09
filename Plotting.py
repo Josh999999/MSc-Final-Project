@@ -59,7 +59,7 @@ def plot_interaction_trajectories(result: dict, saveloc: str, title: str = None)
     fig.savefig(saveloc, dpi = 150)
     plt.close(fig)
  
-
+ 
  
  
 def plot_measure_surfaces(
@@ -186,31 +186,53 @@ def plot_measure_surfaces(
     fig.suptitle(title, fontsize = 12, y = 1.06)
     fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
-
-
-
-
-def _fmt(v):
+ 
+ 
+ 
+ 
+def _fmt(v, sig: int = 4, lo: float = 1e-6, hi: float = 1e7):
+    """
+    Table-cell formatting that keeps `sig` SIGNIFICANT digits.
+ 
+    The previous rule used "%.2e" outside a narrow band, which keeps only three
+    significant digits, so 1.234e-5 printed as "1.23e-05" and 12345.7 as
+    "1.23e+04".  Here anything in [lo, hi) is written in plain decimal with
+    however many places are needed for `sig` significant digits (trailing
+    zeros trimmed), and only genuinely extreme values fall back to
+    scientific notation.
+    """
  
     if isinstance(v, str):
  
         return v
-
+ 
  
     v = float(v)
-
- 
-    if v == 0.0:
- 
-        return "0"
-
- 
-    if abs(v) < 1e-3 or abs(v) >= 1e4:
- 
-        return f"{v:.2e}"
  
  
-    return f"{v:.4f}"
+    if v == 0.0 or not np.isfinite(v):
+ 
+        return "0" if v == 0.0 else str(v)
+ 
+ 
+    a = abs(v)
+ 
+ 
+    if lo <= a < hi:
+        # decimals needed so that `sig` significant digits survive
+        import math
+        decimals = max(0, sig - 1 - int(math.floor(math.log10(a))))
+        text = f"{v:.{decimals}f}"
+ 
+ 
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+ 
+ 
+        return text or "0"
+ 
+ 
+    return f"{v:.{max(sig - 1, 0)}e}"
  
  
  

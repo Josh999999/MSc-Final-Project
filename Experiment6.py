@@ -12,7 +12,7 @@ from Config import Config, make_rng, with_mask, ENERGY_GATES
 from Data import S1
 from Interactions import (appropriate_interactions,
                           random_interactions)
-from GRN import sparse_topology, masked_matrix
+from GRN import sparse_topology, masked_matrix, diag_mask
 from Interactions import adjust_interaction_magnitude
 from Plastic_Induction import plastic_search
 from GRN import handle_develop
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         figures_output = "Experiment6"
     )
  
-    mutations = [25, 50, 100, 250, 400]
+    MUTATIONS = [25, 50, 100, 250, 400]
  
     # Generate the starting profile (Constant used for all interaction matricies)
     G = make_rng(base.seed).uniform(low = -1, high = 1, size = base.N)
@@ -46,9 +46,9 @@ if __name__ == "__main__":
     masks = []
     # K is the out-degree BEFORE symmetrisation, so it cannot exceed N-1.
     # K = N-1 is fully dense; small K leaves few active interactions.
-    sparsities = [0, 1, 2, 4, 6, base.N - 1]
+    SPARSITIES = [1, 2, 4, 6, base.N - 1]
  
-    for K in sparsities:
+    for K in SPARSITIES:
         base_K = replace(base, K = K)
         mask = sparse_topology(base_K, make_rng(base.seed))
         masks.append(mask)
@@ -59,12 +59,12 @@ if __name__ == "__main__":
     """Test the Plastic search for a range of different initialised interaction matricies"""
  
     # Replicable functionality for running the experiment
-    def _experiment6(base: Config, measurement: str = "align_change", gate: str = "or"):
+    def _experiment6(base: Config, measurement: str = "align_change", gate: str = "or", n_seeds: int = 8):
 
         # Create the column titles using the name of the measurement
-        measurement_str = measurement.replace('_', ' ').strip().upper()
+        measurement_str = measurement.replace('_', ' ').strip().lower().capitalize()
 
-        MUTATION_TITLES = tuple(f"{measurement_str}\nM = {M}" for M in mutations)
+        MUTATION_TITLES = tuple(f"{measurement_str}\nM = {M}" for M in MUTATIONS)
  
         COLUMN_TITLES = (
             "Sparsity (K)",
@@ -77,13 +77,13 @@ if __name__ == "__main__":
 
     
         # Set the Energy gate
-        cfg = replace(cfg, energy_gate = gate)
+        cfg = replace(base, energy_gate = gate)
  
  
-        for mask, K in zip(masks, sparsities):
+        for mask, K in zip(masks, SPARSITIES):
 
             # Config is a frozen dataclass: build a new one per cell.
-            cfg = replace(with_mask(base, mask), K = K)
+            cfg = replace(with_mask(cfg, mask), K = K)
  
             # Re-mask B to this topology
             BK = masked_matrix(B, mask)
@@ -93,25 +93,34 @@ if __name__ == "__main__":
  
              
             # Run the Plastic search for a sweep of energy gate protocols
-            P = handle_develop(G, BK, base, induction = False) # Develop the Phenotype as the base for the plastic search
+            P = handle_develop(G, BK, cfg, induction = False) # Develop the Phenotype as the base for the plastic search
 
 
-            # Generates three new rows in the table for each magntiude Y
-            density = float(mask.sum()) / float(cfg.N * (cfg.N - 1))
+            # Generate new row in the table
+            density = float(mask.sum()) / float(cfg.N * (cfg.N - 1)) if cfg.self_interaction else float(mask.sum()) / float(cfg.N ** 2)
             row_data = [K, density]
 
 
             # Save the search data for the current row for the alignment under different mutation rates
-            for M in mutations:
+            for M in MUTATIONS:
 
                 # Alter the mutation rate
                 cfg = replace(cfg, M = M)
 
-                # Perform the plastic search - This search doesn't alter B; Fresh stream per gate, so the gates are compared on identical draws.
-                history = plastic_search(B = BK, P = P, cfg = cfg, rng = make_rng(cfg.seed), limit_return = True)
 
-                # Append the aligment change for the mutation rate (M)
-                row_data.append(history[measurement])
+                # Run the experiment multiple times for robustness
+                a = 0
+
+                for i in range(0, n_seeds):
+
+                    # Perform the plastic search - This search doesn't alter B; Fresh stream per gate, so the gates are compared on identical draws.
+                    history = plastic_search(B = BK, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = True)
+                    a += history[measurement]
+
+
+                # Append the measurement for the mutation rate (M)
+                data = a / n_seeds
+                row_data.append(data)
 
 
             # Collect the row data
@@ -143,6 +152,9 @@ if __name__ == "__main__":
         """Builder that simply returns the matrix (mask is set later)."""
  
         def wrapped(cfg, rng):
+            
+            if cfg.self_interaction:
+                cfg = with_mask(cfg, diag_mask(cfg.N))
             
  
             return build(cfg, rng)
