@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
  
  
  
@@ -16,7 +17,7 @@ def plot_fitness_surface(surfaces: list, saveloc: str = "tenet_surface.png", lab
         a1, a2 = s["a1_grid"], s["a2_grid"]
  
         im = ax.imshow(
-            s["Z"], origin = "lower", cmap = "RdBu_r", vmin = -1, vmax = 1,
+            s["Z"], origin = "lower", cmap = "RdBu_r", vmin = 0, vmax = 1,
             extent = [a1[0], a1[-1], a2[0], a2[-1]], aspect = "auto"
         )
         ax.axhline(0, color = "k", lw = 0.5, alpha = 0.4)
@@ -71,23 +72,6 @@ def plot_measure_surfaces(
         colour_scale: str = "percentile",
         clip_percentile: float = 98.0
     ):
-    """
-    Panels of heatmaps over the two-tenet space, one panel per magnitude.
- 
-    colour_scale:
-      "percentile" (default) -- clip the range at clip_percentile of |Z| so a
-                                single extreme cell cannot flatten the rest of
-                                the map to one colour.  Cells beyond the clip
-                                are drawn at the end colour and the colourbar
-                                is marked as clipped.
-      "symlog"                -- symmetric log scaling, for signed measures
-                                spanning several orders of magnitude.
-      "linear"                -- raw min/max (the old behaviour).
- 
-    A fixed [-1, 1] range, or a raw min/max dominated by one outlier, hides the
-    genuine gradient across the rest of the space.
-    """
-    import matplotlib.colors as mcolors
  
     n = len(surfaces)
     allZ = np.concatenate([np.asarray(s["Z"]).ravel() for s in surfaces])
@@ -191,16 +175,6 @@ def plot_measure_surfaces(
  
  
 def _fmt(v, sig: int = 4, lo: float = 1e-6, hi: float = 1e7):
-    """
-    Table-cell formatting that keeps `sig` SIGNIFICANT digits.
- 
-    The previous rule used "%.2e" outside a narrow band, which keeps only three
-    significant digits, so 1.234e-5 printed as "1.23e-05" and 12345.7 as
-    "1.23e+04".  Here anything in [lo, hi) is written in plain decimal with
-    however many places are needed for `sig` significant digits (trailing
-    zeros trimmed), and only genuinely extreme values fall back to
-    scientific notation.
-    """
  
     if isinstance(v, str):
  
@@ -237,8 +211,7 @@ def _fmt(v, sig: int = 4, lo: float = 1e-6, hi: float = 1e7):
  
  
  
-def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_loc: str, title: str):
- 
+def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_loc: str, title: str): 
     n_rows = len(row_results)
     n_cols = len(column_tites)
  
@@ -257,9 +230,7 @@ def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_
     tbl.scale(1, 2.3)
  
  
-    # Grey backdrop on the header and on the two repeated key columns
-    # (magnitude and energy gate), which label the block structure rather
-    # than carrying results.
+    # Grey backdrop on the header and on the two repeated key columns (magnitude and energy gate), which label the block structure rather than carrying results.
     KEY_COLS = (0, 1)
     HEADER_BG = "#d0d0d0"
     KEY_BG = "#ececec"
@@ -296,10 +267,7 @@ def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_
     ax.axis("off")
     fig.subplots_adjust(top = 0.9)
  
-    # Underline the magnitude entries.  matplotlib text has no underline
-    # attribute and mathtext has no underline command, so use the Unicode
-    # combining low line: reliable, and needs no cell geometry (which is not
-    # settled until after layout and shifts when the figure is re-laid out).
+    # Underline the magnitude entries
     for row in range(1, n_rows + 1):
         cell = tbl[row, 0]
         label = cell.get_text().get_text()

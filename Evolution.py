@@ -1,4 +1,3 @@
-
 """External Imports (Libraries and APIs)"""
 import numpy as np
 
@@ -32,8 +31,6 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     recorded_gens = []
     native_fitness = []
     plastic_fitness = []
-    start_curve = 0
-    end_curve = 0
 
     ei = int(rng.integers(M))
     P = handle_develop(G, B, cfg, induction = False)
@@ -43,11 +40,6 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     
     """ Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison """
     def induction_switch():
-        global start_curve
-        global end_curve
-        global B
-        global F
-
         B_ind = None
 
     
@@ -57,8 +49,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             B_ind = history["B"]
 
             # Log the linear progression of fitness curve
-            start_curve = history['curve'][0]
-            end_curve = history['curve'][-1]
+            native_fitness.append(history['curve'][0])
+            plastic_fitness.append(history['curve'][-1])
 
         else:
             F = evaluate_fitness(P, S[ei], cfg)
@@ -77,24 +69,19 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     # The initial model should be allowed it's own induction proccess for the sake of fairness and reliable comparison
     # Now all incumbents have been through the induction process (if not recently) exactly once
     # Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison
-    F = induction_switch()
+    F = induction_switch()    
 
 
     # Loop through the generations
     for gen in range(cfg.n_generations):
-
 
         if M > 1 and gen > 0 and gen % cfg.switch_every == 0:
             ei = int(rng.integers(M))
             F = induction_switch()
 
 
-        # Create the mutated model for comparison
-        G_mut = mutate_profile(G, cfg, rng)
-
         # Mutate B in place, remembering the delta so it can be reverted.
         undo = None
-
 
         if n_allowed and rng.random() < cfg.prob_mut_B:
             t = rng.integers(0, n_allowed, size = cfg.n_mut_B)
@@ -113,6 +100,9 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
                 undo = (idx, None, deltas, None)
 
 
+        # Create the mutated model for comparison
+        G_mut = mutate_profile(G, cfg, rng)
+
         # Develop under the MUTATED matrix (B has just been mutated in place).
         P_mut = handle_develop(G_mut, B, cfg, induction = False)
 
@@ -120,6 +110,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         # Handle Induction
         F_mut = 0
         B_ind = None
+        start_curve = 0
+        end_curve = 0
 
         if cfg.induction:
 

@@ -76,7 +76,7 @@ class Config:
     record_every: int = 1000
     drift_selection: bool = True            # accept ties as well as strict gains
     symmetric_B: bool = False               # mirror each B mutation to (j, i)
-    baldwin_effect: bool = False            # PLACEHOLDER: accepted but currently inert
+    baldwin_effect: bool = True            # PLACEHOLDER: accepted but currently inert
 
 
     # !-- Interaction matrix construction --!

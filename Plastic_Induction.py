@@ -78,12 +78,12 @@ def energy_gate(F_try: float, F: float, w: float, dE: float, cfg: Config, rng: n
         
         elif cfg.energy_gate == "harsh":
             slack = rng.uniform(0, cfg.limit_slack)
-
+ 
  
             return (F_try >= F) and (cfg.energy_limit - slack <= w)
-
+ 
         elif cfg.energy_gate == "deterministic":
-
+ 
             return (F_try >= F) and (dE <= 0)
  
         else:
@@ -129,6 +129,7 @@ def plastic_search(
     accepted = 0
     dE_mean, dE_std, taus = [], [], []
     accepted_energies = []
+    accepted_energies_ = []
     accepted_alignments = []
  
  
@@ -169,6 +170,7 @@ def plastic_search(
             A = alignment
             accepted += 1
             accepted_energies.append(dE)
+            accepted_energies_.append(w)
             accepted_alignments.append(alignment)
  
         else:
@@ -177,19 +179,17 @@ def plastic_search(
  
         curve.append(F)
         align_curve.append(A)
-
+ 
     
     curve = np.asarray(curve, dtype = float)
     align_curve = np.asarray(align_curve, dtype = float)
-    accepted_energies = np.asarray(accepted_energies, dtype = float)
-    accepted_alignments = np.asarray(accepted_alignments, dtype = float)
  
-
-    return B, P, F, curve, align_curve, accepted_energies, accepted_alignments, accepted
-
-
-
-
+ 
+    return B, P, F, curve, align_curve, accepted_energies, accepted_energies_, accepted_alignments, accepted
+ 
+ 
+ 
+ 
 def plastic_search_return_wrapper(
         B: np.ndarray,
         P: np.ndarray,
@@ -198,32 +198,34 @@ def plastic_search_return_wrapper(
         S: np.ndarray = None,
         limit_return: bool = False
     ) -> dict:
-
-    B, P, F, curve, align_curve, accepted_energies, accepted_alignments, accepted = plastic_search(B, P, cfg, rng, S)
-
-
+ 
+    B, P, F, curve, align_curve, accepted_energies, accepted_energies_, accepted_alignments, accepted = plastic_search(B, P, cfg, rng, S)
+ 
+ 
     if limit_return:
     
         return {
             "B": B,
             "P": P,
             "F": F,
+            "curve": curve,
             "auc": np.mean(curve) if curve.size else 0.0,                 # area under the ABSOLUTE curve
             "F_change": curve[-1] - curve[0],
             "align_change": align_curve[-1] - align_curve[0],
-            "curve": curve,
         }
-
-
+ 
+ 
     return {
         "B": B,
         "P": P,
         "F": F,
         "F_change": curve[-1] - curve[0],
-        "avg_accept_E": np.mean(accepted_energies) if accepted_energies.size else 0.0, 
-        "std_accept_E": np.std(accepted_energies) if accepted_energies.size else 0.0, 
-        "avg_accept_A": np.mean(accepted_alignments) if accepted_alignments.size else 0.0,
-        "std_accept_A": np.std(accepted_alignments) if accepted_alignments.size else 0.0, 
+        "avg_accept_E": np.mean(accepted_energies) if len(accepted_energies) else 0.0, 
+        "std_accept_E": np.std(accepted_energies) if len(accepted_energies) else 0.0, 
+        "avg_accept_w": np.mean(accepted_energies_) if len(accepted_energies_) else 0.0,
+        "std_accept_w": np.std(accepted_energies_) if len(accepted_energies_) else 0.0,
+        "avg_accept_A": np.mean(accepted_alignments) if len(accepted_alignments) else 0.0,
+        "std_accept_A": np.std(accepted_alignments) if len(accepted_alignments) else 0.0, 
         "auc": np.mean(curve) if curve.size else 0.0,                 # area under the ABSOLUTE curve
         "acceptance_rate": accepted / cfg.M if accepted and cfg.M else 0.0,        # collapse signature (5.6)
         "curve": curve,
