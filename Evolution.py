@@ -32,21 +32,22 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     recorded_gens = []
     native_fitness = []
     plastic_fitness = []
+    start_curve = 0
+    end_curve = 0
 
     ei = int(rng.integers(M))
     P = handle_develop(G, B, cfg, induction = False)
-
-
-    # The initial model should be allowed it's own induction proccess for the sake of fairness and reliable comparison
-    # Now all incumbents have been through the induction process (if not recently) exactly once
-    F = 0
-    B_ind = None
 
 
 
     
     """ Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison """
     def induction_switch():
+        global start_curve
+        global end_curve
+        global B
+        global F
+
         B_ind = None
 
     
@@ -56,8 +57,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             B_ind = history["B"]
 
             # Log the linear progression of fitness curve
-            native_fitness.append(history['curve'][0])
-            plastic_fitness.append(history['curve'][-1])
+            start_curve = history['curve'][0]
+            end_curve = history['curve'][-1]
 
         else:
             F = evaluate_fitness(P, S[ei], cfg)
@@ -72,6 +73,9 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
 
 
+
+    # The initial model should be allowed it's own induction proccess for the sake of fairness and reliable comparison
+    # Now all incumbents have been through the induction process (if not recently) exactly once
     # Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison
     F = induction_switch()
 
@@ -111,19 +115,26 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
         # Develop under the MUTATED matrix (B has just been mutated in place).
         P_mut = handle_develop(G_mut, B, cfg, induction = False)
-        F_mut = 0
-        B_ind = None
 
 
         # Handle Induction
-        history = None
-        
+        F_mut = 0
+        B_ind = None
+
         if cfg.induction:
+
+            # Compute induction
             history = handle_induction(B, P_mut, G, cfg, rng, S[ei])
             F_mut = history["auc"]
             B_ind = history["B"]
+
+            # Log the linear progression of fitness curve
+            start_curve = history['curve'][0]
+            end_curve = history['curve'][-1]
+
         else:
             F_mut = evaluate_fitness(P_mut, S[ei], cfg)
+
 
 
         # !-- Perform the selection process -- !
@@ -131,18 +142,13 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         # Compute acceptance boundary
         accept = (F_mut >= F) if cfg.drift_selection else (F_mut > F)
 
-
         if accept:
 
             # Re-assign the interaction matrix with the induction vairant if the Baldwin effect is not active
             if cfg.induction and not cfg.baldwin_effect:
                 B[...] = B_ind
 
-            G, P, F = G_mut, P_mut, F_mut
-
-            # Log the linear progression of fitness curve
-            native_fitness.append(history['curve'][0])
-            plastic_fitness.append(history['curve'][-1])
+            G, P, F = G_mut, P_mut, F_mut      
 
         elif undo is not None:
             idx, mirror, deltas, mdeltas = undo
@@ -151,6 +157,16 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
             if mirror is not None:
                 np.add.at(B_flat, mirror, -mdeltas)
+
+        
+        # Record the start and end curve
+        if cfg.induction and accept:
+            native_fitness.append(start_curve)
+            plastic_fitness.append(end_curve)
+
+        elif cfg.induction:
+            native_fitness.append(native_fitness[-1])
+            plastic_fitness.append(plastic_fitness[-1])
 
 
         # Subsampled recording of masked entries only
@@ -177,4 +193,6 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         "trajectories": trajectories,
         "recorded_gens": gens,
         "config": cfg,
+        "native_fitness": native_fitness,
+        "plastic_fitness": plastic_fitness
     }

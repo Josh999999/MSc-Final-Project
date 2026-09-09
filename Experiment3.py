@@ -42,8 +42,6 @@ if __name__ == "__main__":
         "F\nchange",
         "Accepted\navg. dE",
         "Accepted\nstd. dE",
-        "Accepted\navg. w",
-        "Accepted\nstd. w",
         "Align\nchange",
         "Accepted\navg. align",
         "Accepted\nstd. align",
@@ -97,8 +95,6 @@ if __name__ == "__main__":
                     data.append(history["F_change"])
                     data.append(history["avg_accept_E"])
                     data.append(history["std_accept_E"])
-                    data.append(history["avg_accept_w"])
-                    data.append(history["std_accept_w"])
                     data.append(history["align_change"])
                     data.append(history["avg_accept_A"])
                     data.append(history["std_accept_A"])

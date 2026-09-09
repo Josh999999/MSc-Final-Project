@@ -17,7 +17,7 @@ def handle_induction(
         cfg: Config,
         rng: np.random.Generator,
         S: np.ndarray = None,
-        limit_return: bool = True
+        limit_return: bool = False
     ) -> dict[any]:
 
     """

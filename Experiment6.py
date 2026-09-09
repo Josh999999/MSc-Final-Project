@@ -7,7 +7,11 @@ import os
 from Config import Config, make_rng, with_mask, ENERGY_GATES
 from Data import S1
 from Interactions import (appropriate_interactions,
-                          random_interactions)
+                          random_interactions,
+                          noisy_appropriate_interactions,
+                          modular_interactions,
+                          modular_appropriate_interactions
+                          )
 from GRN import sparse_topology, masked_matrix, diag_mask
 from Interactions import adjust_interaction_magnitude
 from Plastic_Induction import plastic_search_return_wrapper
@@ -173,9 +177,29 @@ if __name__ == "__main__":
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                              inappropriate = True,
                                                              normalise = cfg.interactions_norm))),
+        ("noisy appropriate interactions",
+            _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                   inappropriate = False,
+                                                                   normalise = cfg.interactions_norm))),
+        ("noisy inappropriate interactions",
+            _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                   inappropriate = True,
+                                                                   normalise = cfg.interactions_norm))),
         ("random interactions",
             _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
                                                         normalise = cfg.interactions_norm))),
+ 
+        ("modular random interactions",
+            _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng,
+                                                         normalise = cfg.interactions_norm))),
+        ("modular appropriate interactions",
+            _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                     inappropriate = False,
+                                                                     normalise = cfg.interactions_norm))),
+        ("modular inappropriate interactions",
+            _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                     inappropriate = True,
+                                                                     normalise = cfg.interactions_norm))),
     )
  
     os.makedirs(base.figures_output or ".", exist_ok = True)

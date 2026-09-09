@@ -129,7 +129,6 @@ def plastic_search(
     accepted = 0
     dE_mean, dE_std, taus = [], [], []
     accepted_energies = []
-    accepted_energies_ = []
     accepted_alignments = []
  
  
@@ -182,6 +181,8 @@ def plastic_search(
     
     curve = np.asarray(curve, dtype = float)
     align_curve = np.asarray(align_curve, dtype = float)
+    accepted_energies = np.asarray(accepted_energies, dtype = float)
+    accepted_alignments = np.asarray(accepted_alignments, dtype = float)
  
 
     return B, P, F, curve, align_curve, accepted_energies, accepted_alignments, accepted
@@ -204,11 +205,13 @@ def plastic_search_return_wrapper(
     if limit_return:
     
         return {
+            "B": B,
             "P": P,
             "F": F,
             "auc": np.mean(curve) if curve.size else 0.0,                 # area under the ABSOLUTE curve
             "F_change": curve[-1] - curve[0],
             "align_change": align_curve[-1] - align_curve[0],
+            "curve": curve,
         }
 
 

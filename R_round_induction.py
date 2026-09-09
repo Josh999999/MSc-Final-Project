@@ -89,6 +89,7 @@ def r_round_induction_return_wrapper(
             "auc_inner": np.mean(inner_curve) if inner_curve.size else 0.0,                 # area under the ABSOLUTE curve
             "F_change_inner": inner_curve[-1] - inner_curve[0],
             "align_change": align_curve[-1] - align_curve[0],
+            "curve": outer_curve
         }
 
 
