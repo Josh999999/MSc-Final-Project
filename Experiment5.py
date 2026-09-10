@@ -18,9 +18,11 @@ if __name__ == "__main__":
     #   diverging : signed quantity, centred on zero
     #   sequential: non-negative quantity
     MEASURES = (
-        ("auc_inner",             "Plastic AUC (mean fitness over the search)", "sequential"),
-        ("F_change",        "Fitness change over the search",             "diverging"),
-        ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
+        ("auc_inner",             "Plastic AUC (mean fitness over the search)",         "sequential"),
+        ("auc_outer",             "Relaxed AUC (mean fitness over the search)",         "sequential"),
+        ("F_change_inner",        "Plastic Fitness change over the search",             "diverging"),
+        ("F_change_outer",        "Relaxed Fitness change over the search",             "diverging"),
+        ("align_change",          "Change in cos(P (x) P, B)",                          "diverging"),
     )
  
     base = Config(

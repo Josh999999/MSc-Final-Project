@@ -266,7 +266,7 @@ def plastic_measure_surface(
                 # Develop under the SCALED matrix, then run the plastic search
                 # on that phenotype with the same matrix.
                 P = handle_develop(G, B, cfg, induction = False)
-                history = handle_induction(B, P, G, cfg, rng, S = S_eval)
+                history = handle_induction(B, P, G, cfg, rng, S = S_eval, limit_return = False)
  
  
                 if measure not in history:
