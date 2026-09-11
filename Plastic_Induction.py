@@ -4,7 +4,7 @@ import numpy as np
  
 """Local Imports"""
 from Config import Config
-from GRN import evaluate_fitness, sigmoid_sigma, _cos
+from GRN import evaluate_fitness, sigmoid_sigma
 from Mutations import compute_mutation
  
  
@@ -13,6 +13,26 @@ from Mutations import compute_mutation
 def energy(P: np.ndarray, B: np.ndarray, normalise: bool = True) -> float:
     P = np.asarray(P, dtype = float)
     q = float(-0.5 * P @ (B @ P))
+ 
+ 
+    if not normalise:
+ 
+        return q
+ 
+ 
+    n = float(P @ P)
+ 
+ 
+    return q / n if n > 0 else 0.0
+
+
+
+
+def differential_energy(P: np.ndarray, P_try: np.ndarray, B: np.ndarray, normalise: bool = True) -> float:
+    P = np.asarray(P, dtype = float)
+    P_try = np.asarray(P_try, dtype = float)
+    dP = P_try - P
+    q = float(-0.5 * dP @ (B @ dP))
  
  
     if not normalise:
@@ -64,34 +84,28 @@ def adaptive_tau(dE_pool: np.ndarray, cfg: Config) -> float:
  
  
  
-def energy_gate(F_try: float, F: float, w: float, dE: float, cfg: Config, rng: np.random.Generator) -> bool:
+def energy_gate(F_try: float, F: float, w: float, dE: float, cfg: Config, rng: np.random.Generator, E: float) -> bool:
  
-    if cfg.use_energy:
- 
-        if cfg.energy_gate == "or":
- 
-            return (F_try >= F) or (rng.random() <= w)
- 
-        elif cfg.energy_gate == "and":
-            
-            return (F_try >= F) and (rng.random() <= w)
+    if cfg.energy_gate == "or":
+
+        return (F_try >= F) and E >= 0
+
+    elif cfg.energy_gate == "and":
         
-        elif cfg.energy_gate == "harsh":
-            slack = rng.uniform(0, cfg.limit_slack)
+        return (F_try >= F) and (rng.random() <= w)
+    
+    elif cfg.energy_gate == "harsh":
+        slack = rng.uniform(0, cfg.limit_slack)
+
+
+        return (F_try >= F) and (cfg.energy_limit - slack <= w)
+
+    elif cfg.energy_gate == "deterministic":
+
+        return (F_try >= F) and (dE <= 0)
+    
  
- 
-            return (F_try >= F) and (cfg.energy_limit - slack <= w)
- 
-        elif cfg.energy_gate == "deterministic":
- 
-            return (F_try >= F) and (dE <= 0)
- 
-        else:
- 
-            return F_try * w >= F
- 
- 
-    return F_try >= F
+    return F_try * w >= F
  
  
  
@@ -123,6 +137,7 @@ def plastic_search(
     P = np.asarray(P, dtype = float).copy()        
  
     F = evaluate_fitness(P, S, cfg)
+    E = energy(P, B, cfg.normalise_energy)
  
     curve = [F]
     align_curve = [phenotype_alignment(P, B, cfg)]
@@ -150,8 +165,17 @@ def plastic_search(
  
  
         P_try, _ = compute_mutation(P, cfg, rng)
- 
-        dE = energy(P_try, B, cfg.normalise_energy) - energy(P, B, cfg.normalise_energy)
+
+
+        # Calculate energy
+        dE = 0
+
+        if cfg.energy_type == "standard":
+            dE = energy(P_try, B, normalise = cfg.normalise_energy) - energy(P, B, normalise = cfg.normalise_energy)
+            
+        elif cfg.energy_type == "differential":
+            dE = differential_energy(P, P_try, B, normalise = cfg.normalise_energy)
+
  
         # Alignment of the CANDIDATE: measuring P here records the pre-move
         # state, so the curve lags and align_end misses the last accepted move.
@@ -162,7 +186,7 @@ def plastic_search(
  
  
         # Apply the Fitness gate with Energy
-        accept = energy_gate(F_try, F, w, dE, cfg, rng)
+        accept = energy_gate(F_try, F, w, dE, cfg, rng, E)
  
  
         if accept:
@@ -181,8 +205,8 @@ def plastic_search(
         align_curve.append(A)
  
     
-    curve = np.asarray(curve, dtype = float)
-    align_curve = np.asarray(align_curve, dtype = float)
+    curve = np.asarray(curve, dtype = np.float32)
+    align_curve = np.asarray(align_curve, dtype = np.float32)
  
  
     return B, P, F, curve, align_curve, accepted_energies, accepted_energies_, accepted_alignments, accepted
@@ -207,30 +231,30 @@ def plastic_search_return_wrapper(
         return {
             "B": B,
             "P": P,
-            "F": F,
+            "F": float(F),
             "curve": curve,
-            "auc": np.mean(curve) if curve.size else 0.0,                 # area under the ABSOLUTE curve
-            "F_change": curve[-1] - curve[0],
-            "align_change": align_curve[-1] - align_curve[0],
+            "auc": float(np.mean(curve)) if curve.size else 0.0,                 # area under the ABSOLUTE curve
+            "F_change": float(curve[-1] - curve[0]),
+            "align_change": float(align_curve[-1] - align_curve[0]),
         }
  
  
     return {
         "B": B,
         "P": P,
-        "F": F,
-        "F_change": curve[-1] - curve[0],
-        "avg_accept_E": np.mean(accepted_energies) if len(accepted_energies) else 0.0, 
-        "std_accept_E": np.std(accepted_energies) if len(accepted_energies) else 0.0, 
-        "avg_accept_w": np.mean(accepted_energies_) if len(accepted_energies_) else 0.0,
-        "std_accept_w": np.std(accepted_energies_) if len(accepted_energies_) else 0.0,
-        "avg_accept_A": np.mean(accepted_alignments) if len(accepted_alignments) else 0.0,
-        "std_accept_A": np.std(accepted_alignments) if len(accepted_alignments) else 0.0, 
-        "auc": np.mean(curve) if curve.size else 0.0,                 # area under the ABSOLUTE curve
-        "acceptance_rate": accepted / cfg.M if accepted and cfg.M else 0.0,        # collapse signature (5.6)
+        "F": float(F),
+        "F_change": float(curve[-1] - curve[0]),
+        "avg_accept_E": float(np.mean(accepted_energies)) if len(accepted_energies) else 0.0, 
+        "std_accept_E": float(np.std(accepted_energies)) if len(accepted_energies) else 0.0, 
+        "avg_accept_w": float(np.mean(accepted_energies_)) if len(accepted_energies_) else 0.0,
+        "std_accept_w": float(np.std(accepted_energies_)) if len(accepted_energies_) else 0.0,
+        "avg_accept_A": float(np.mean(accepted_alignments)) if len(accepted_alignments) else 0.0,
+        "std_accept_A": float(np.std(accepted_alignments)) if len(accepted_alignments) else 0.0, 
+        "auc": float(np.mean(curve)) if curve.size else 0.0,                 # area under the ABSOLUTE curve
+        "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else 0.0,        # collapse signature (5.6)
         "curve": curve,
         "align_curve": align_curve,
-        "align_start": align_curve[0],
-        "align_end": align_curve[-1],
-        "align_change": align_curve[-1] - align_curve[0],
+        "align_start": float(align_curve[0]),
+        "align_end": float(align_curve[-1]),
+        "align_change": float(align_curve[-1] - align_curve[0]),
     }

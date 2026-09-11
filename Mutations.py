@@ -8,20 +8,10 @@ from Config import Config
 
 
 
-def _prepare(P: np.ndarray, cfg: Config) -> np.ndarray:
-    P = np.asarray(P, dtype = float)
-
-
-    return P if cfg.mutate_inplace else P.copy()
-
-
-
-
 def single_gene_mutation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -> tuple:
-    P = _prepare(P, cfg)
+    P = np.asarray(P, dtype = np.float32).copy()
     
     idx = rng.integers(cfg.N)
-    before = float(P[idx])
 
     magnitude = float(rng.uniform(low = 0.0, high = cfg.c))
     sign = float(rng.choice([-1.0, 1.0]))
@@ -34,17 +24,13 @@ def single_gene_mutation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -
         P[idx] *= 1.0 + magnitude * sign
 
 
-    undo = ("single-gene", idx, before)
-
-
-    return P, undo
+    return P
 
 
 
 
 def phenotype_mutation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -> tuple:
-    P = _prepare(P, cfg)
-    before = P.copy()
+    P = np.asarray(P, dtype = np.float32).copy()
 
     magnitude = rng.uniform(low = 0.0, high = cfg.c, size = cfg.N)
     sign = rng.choice([-1.0, 1.0], size = cfg.N)
@@ -57,24 +43,18 @@ def phenotype_mutation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -> 
         P *= 1.0 + magnitude * sign
 
 
-    undo = ("phenotype", None, before)
-
-
-    return P, undo
+    return P
 
 
 
 
 def perturbation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -> tuple:
-    P = _prepare(P, cfg)
-    before = P.copy()
+    P = np.asarray(P, dtype = np.float32).copy()
 
     P += rng.uniform(low = -cfg.c, high = cfg.c, size = cfg.N)
 
-    undo = ("perturbation", None, before)
 
-
-    return P, undo
+    return P
 
 
 
@@ -85,27 +65,3 @@ def compute_mutation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -> tu
     
     
     return _MUTATIONS[cfg.mutation_type.strip().lower()](P, cfg, rng)
-
-
-
-
-def reverse_last_mutation(P: np.ndarray, undo: tuple, cfg: Config) -> np.ndarray:
-    
-    if undo is None:
-
-        return P
-
-
-    kind, idx, before = undo
-
-    P = _prepare(P, cfg)
-
-
-    if kind == "single-gene":
-        P[idx] = before
-
-    else:
-        P[...] = before
-
-
-    return P

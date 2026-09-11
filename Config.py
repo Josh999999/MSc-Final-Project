@@ -93,19 +93,17 @@ class Config:
     # !-- Induction --!
     induction: bool = False
     induction_process: str = "plastic"      # "plastic", "hopfield" or "r-round"
-    induction_inplace: bool = False         # induction based learning is performed inplace
     energy_gate: str = "or"                 # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", "harsh" or "deterministic"
     energy_limit: float = 0.5               # Maximum amount sigmoid energy needs to achieve when `energy_gate = "harsh"` sigma(-dE/tau)
+    energy_type: str = "standard"           # Can be 'standard' or 'differential'
     limit_slack: float = 0.01               # Maximum amount of slack to be given in the randomised scaling of the energy limit boundry inside the plastic selection proccess
     M: int = 20                             # mutation attempts per plastic search
     c: float = 0.1                          # single-gene mutation size
     c_tau: float = 1.0                      # tau = c_tau * std(dE) over the pool
-    use_energy: bool = True                 # sigma(-dE/tau) inside the acceptance test
     eta: float = 0.01                       # contrastive learning rate for B
     rounds: int = 10                        # R rounds of develop -> plasticity -> induct
     mutation_type: str = "single-gene"      # "single-gene", "phenotype" or "perturbation"
     mutation_operation: str = "additive"    # "additive" or "multiplicative"
-    mutate_inplace: bool = False            # mutate the caller's array rather than a copy
     tau_floor: float = 1e-12                # guard for a degenerate candidate pool
     normalise_energy: bool = True           # Rayleigh quotient: direction only
     relative_mutation: bool = False         # scale the step by |P|/sqrt(N)

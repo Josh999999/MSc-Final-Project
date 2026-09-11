@@ -151,10 +151,8 @@ if __name__ == "__main__":
     def _dense(build):
         """Builder that simply returns the matrix (mask is set later)."""
  
-        def wrapped(cfg, rng):
-            
-            if cfg.self_interaction:
-                cfg = with_mask(cfg, diag_mask(cfg.N))
+        def wrapped(cfg, rng):            
+            cfg = with_mask(cfg, diag_mask(cfg))
             
  
             return build(cfg, rng)

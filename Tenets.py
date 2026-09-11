@@ -224,16 +224,6 @@ def plastic_measure_surface(
         amplitude: float = 1.0,
         grid: int = 15
     ) -> dict:
-    """
-    Heatmap of ONE plastic-search measurement over the two-tenet space.
- 
-    For every (a1, a2) cell a B with Tenet 1 == a1 and a G with Tenet 2 == a2
-    are synthesised exactly, the phenotype is developed under cfg.Y * B, and the
-    plastic search is run on it.  The requested key of the search history is
-    averaged over n_seeds and written into the grid, so the surface shows how
-    that measurement varies with the alignment of the interaction matrix and of
-    the genotype.
-    """
     S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = float)
  
  

@@ -20,18 +20,6 @@ def handle_induction(
         limit_return: bool = False
     ) -> dict[any]:
 
-    """
-    Induction methods should, at the least, return a dictionary of the form
-    {
-        "B": B,
-        "P": P,
-        "F": float(F),
-    }
-    B - The altered interaction matrix
-    P - The phenotype produced by the induction process
-    F - The fitness the induction method conveys given the interaction matrix and genotype pair
-    """
-
     history = {}
     induction_process_ = cfg.induction_process.lower().strip()
 
@@ -43,15 +31,6 @@ def handle_induction(
     elif induction_process_ == "r-round":
 
         history = r_round_induction_return_wrapper(B, P, G, cfg, rng, S, limit_return)
-
-    elif induction_process_ == "hopfield":
-
-        """!-- TODO --!"""
-        history = {
-            "B": B,
-            "P": P,
-            "F": evaluate_fitness(P, S, cfg),
-        }
 
     else:
         history = {

@@ -31,6 +31,9 @@ if __name__ == "__main__":
         induction = True,
         induction_process = "plastic",
         figures_output = "Experiment4",
+        T = 4,
+        interactions_norm = True,
+        normalise_energy = False,
     )
  
     os.makedirs(base.figures_output, exist_ok = True)

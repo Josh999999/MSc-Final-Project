@@ -12,7 +12,7 @@ from Interactions import normalise_interactions
 
 
 def r_round_induction(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, rng: np.random.Generator, S: np.ndarray = None) -> np.ndarray:    
-    B = np.asarray(B, dtype = float).copy() if not cfg.induction_inplace else np.asarray(B, dtype = float)
+    B = np.asarray(B, dtype = float).copy()
     S = cfg.target if S is None else np.asarray(S, dtype = float)
     P = np.asarray(P, dtype = float)
     

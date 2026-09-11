@@ -73,9 +73,10 @@ def resolve_sigmoid(sigmoid):
 
 
 
-def diag_mask(N: int) -> np.ndarray:
-    mask = np.ones((N, N), dtype = bool)
-    np.fill_diagonal(mask, False)
+def diag_mask(cfg: Config) -> np.ndarray:
+    mask = np.ones((cfg.N, cfg.N), dtype = bool)
+
+    np.fill_diagonal(mask, cfg.self_interaction)
 
 
     return mask
@@ -88,7 +89,7 @@ def sparse_topology(cfg: Config, rng: np.random.Generator) -> np.ndarray:
     all_genes = np.arange(cfg.N)
 
 
-    for i in range(cfg.N):
+    for i in range(cfg.N):        
         others = rng.choice(all_genes[all_genes != i], size = cfg.K, replace = False)
         mask[i, others] = True
 
@@ -118,9 +119,9 @@ def mask_indices(mask: np.ndarray) -> np.ndarray:
 
 
 
-def masked_matrix(B: np.ndarray, mask: np.ndarray) -> np.ndarray:
+def masked_matrix(B: np.ndarray, mask: np.ndarray, inplace: bool = True) -> np.ndarray:
     mask = np.asarray(mask).astype(bool)
-    B = np.zeros(mask.shape, dtype = float) if B is None else np.asarray(B, dtype = float).copy()
+    B = np.asarray(B, dtype = float) if inplace else np.asarray(B, dtype = float).copy()
 
 
     return np.where(mask, B, 0.0)

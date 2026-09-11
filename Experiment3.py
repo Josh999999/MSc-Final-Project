@@ -145,9 +145,7 @@ if __name__ == "__main__":
         """Builder that keeps the default (dense) mask."""
  
         def wrapped(cfg, rng):
-
-            if cfg.self_interaction:
-                cfg = with_mask(cfg, diag_mask(cfg.N))
+            cfg = with_mask(cfg, diag_mask(cfg))
 
  
             return build(cfg, rng), cfg
