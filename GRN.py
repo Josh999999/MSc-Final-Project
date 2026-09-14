@@ -111,14 +111,6 @@ def sparse_topology(cfg: Config, rng: np.random.Generator) -> np.ndarray:
 
 
 
-def mask_indices(mask: np.ndarray) -> np.ndarray:
-
-
-    return np.flatnonzero(np.asarray(mask).astype(bool).ravel())
-
-
-
-
 def masked_matrix(B: np.ndarray, mask: np.ndarray, inplace: bool = True) -> np.ndarray:
     mask = np.asarray(mask).astype(bool)
     B = np.asarray(B, dtype = float) if inplace else np.asarray(B, dtype = float).copy()
@@ -156,10 +148,36 @@ def handle_develop(G: np.ndarray, B: np.ndarray, cfg: Config, induction: bool = 
 
 
 
+def fitness(P: np.ndarray, S: np.ndarray, limit: bool = False, norm: bool = False) -> float:
+    norm = limit and norm
+
+    P = P if not limit else np.clip(P.copy(), -1, 1)
+
+    F = P @ S
+
+
+    if norm:
+        N = len(S)
+        F = (F + N) / 2 * N
+
+
+    return F
+
+
+
+
 def evaluate_fitness(P: np.ndarray, S: np.ndarray, cfg: Config) -> float:
 
+    if cfg.fitness_type == "cosine":
 
-    return _cos(P, S, norm = cfg.fitness_norm)
+        return _cos(P, S, norm = cfg.normalise_fitness)
+
+    elif cfg.fitness_type == "standard":
+
+        return fitness(P, S, cfg.limit_fitness, cfg.normalise_fitness)
+
+
+    return P @ S
 
 
 

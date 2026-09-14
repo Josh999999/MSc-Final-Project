@@ -23,18 +23,31 @@ if __name__ == "__main__":
         figures_output = "Experiment2"
     )
 
-    surfaces = []
+
+    MEASURES = ("fitness", "energy", "diff_energy")
+    
+    for measure in MEASURES:
+
+        surfaces = []
 
 
-    for Y in [0.5, 1.0, 2.0, 6.0]:
-        cfg = replace(base, Y = Y)
-        rng = make_rng(cfg.seed)        # same stream per panel, so panels are comparable
+        for Y in [0.5, 1.0, 2.0, 6.0]:
+            cfg = replace(base, Y = Y)
+            rng = make_rng(cfg.seed)        # same stream per panel, so panels are comparable
 
-        result = fitness_surface(cfg, rng, n_seeds = 8)
-        surfaces.append(result)
+            result = fitness_surface(
+                cfg, 
+                rng, 
+                n_seeds = 8,
+                amplitude = 1.0,
+                grid = 21,
+                measure = measure
+            )
+            surfaces.append(result)
 
-    # Handle the output folder
-    OUTPUT = os.path.join(cfg.figures_output or ".", "tenet_surface_induction.png")
-    os.makedirs(cfg.figures_output, exist_ok = True)
 
-    plot_fitness_surface(surfaces, saveloc = OUTPUT)
+        # Handle the output folder
+        OUTPUT = os.path.join(cfg.figures_output or ".", f"tenet_{measure}_surface.png")
+        os.makedirs(cfg.figures_output, exist_ok = True)
+
+        plot_fitness_surface(surfaces, saveloc = OUTPUT)

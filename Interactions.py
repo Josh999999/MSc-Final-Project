@@ -11,7 +11,7 @@ from GRN import masked_matrix
  
 def _finalise(B: np.ndarray, cfg: Config, symmetric: bool = None, normalise: bool = None) -> np.ndarray:
     symmetric = cfg.symmetric_mask if symmetric is None else symmetric
-    normalise = cfg.interactions_norm if normalise is None else normalise
+    normalise = cfg.normalise_interactions if normalise is None else normalise
  
     B = np.asarray(B, dtype = float).copy()
     np.fill_diagonal(B, 0.0)
@@ -22,7 +22,7 @@ def _finalise(B: np.ndarray, cfg: Config, symmetric: bool = None, normalise: boo
         np.fill_diagonal(B, 0.0)
  
  
-    B = masked_matrix(B, cfg.mask)
+    B = masked_matrix(B, cfg.mask, inplace = True)
  
  
     if normalise:
@@ -85,7 +85,7 @@ def small_appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.
  
     B = appropriate_interactions(cfg, rng, S = S, normalise = False)
  
-    # Magnitude is forced regardless of cfg.interactions_norm: a "small"
+    # Magnitude is forced regardless of cfg.normalise_interactions: a "small"
     # matrix that ignored its own magnitude would be meaningless.
     r = np.linalg.norm(B, ord = "fro")
  
@@ -184,10 +184,10 @@ def module_sizes(N: int, n_modules: int) -> np.ndarray:
  
  
  
-def adjust_interaction_magnitude(B: np.ndarray, cfg: Config, Y: float = None) -> np.ndarray:
+def adjust_interaction_magnitude(B: np.ndarray, cfg: Config, Y: float = None, inplace: bool = False) -> np.ndarray:
     Y = cfg.Y if Y is None else Y
  
-    B = masked_matrix(B, cfg.mask)
+    B = masked_matrix(B, cfg.mask, inplace = inplace)
     r = np.linalg.norm(B, ord = "fro")
  
  

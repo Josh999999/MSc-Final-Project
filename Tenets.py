@@ -4,8 +4,9 @@ import numpy as np
  
 """Local Imports"""
 from Config import Config
-from GRN import _cos, handle_develop, evaluate_fitness, mask_indices, masked_matrix
+from GRN import _cos, handle_develop, evaluate_fitness, masked_matrix
 from Induction import handle_induction
+from Plastic_Induction import energy, differential_energy
  
  
  
@@ -95,8 +96,7 @@ def split_gain(B: np.ndarray) -> tuple:
  
  
 def synthesise_B(a1: float, cfg: Config, rng: np.random.Generator, S: np.ndarray = None) -> np.ndarray:
-    """Unit-Frobenius B whose Tenet 1 score is exactly a1."""
-    idx = mask_indices(cfg.mask)
+    idx = cfg.allowed()
     symmetric = bool(np.array_equal(cfg.mask, cfg.mask.T))
  
     H = ideal_hebbian(cfg, S)
@@ -136,7 +136,6 @@ def synthesise_G(
         S: np.ndarray = None,
         amplitude: float = 1.0
     ) -> np.ndarray:
-    """Genotype whose Tenet 2 score is exactly a2, with per-gene RMS amplitude."""
     S = cfg.target if S is None else np.asarray(S, dtype = float)
  
     u = _unit(S)
@@ -156,7 +155,8 @@ def fitness_surface(
         n_seeds: int = 8,
         amplitude: float = 1.0,
         grid: int = 21,
-        induction_measure: str = "auc"
+        induction_measure: str = "auc",
+        measure: str = "fitness"
     ) -> dict:
     S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = float)
  
@@ -196,8 +196,22 @@ def fitness_surface(
                     history = handle_induction(B, P, G, cfg, rng, S = S_eval)
                     M = history[induction_measure]
                     acc += M
+
                 else:
-                    acc += evaluate_fitness(P, S_eval, cfg)
+                    measure = measure.strip().lower()
+
+
+                    if measure == "fitness":
+                        acc += evaluate_fitness(P, S_eval, cfg)
+
+                    elif measure == "energy":
+                        acc += energy(P, B, normalise = cfg.normalise_energy)
+
+                    elif measure == "diff_energy":
+                        acc += differential_energy(P, G, B, normalise = cfg.normalise_energy)
+
+                    else:
+                        acc += 1
  
  
             Z[i, j] = acc / n_seeds

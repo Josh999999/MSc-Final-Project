@@ -18,19 +18,29 @@ if __name__ == "__main__":
     #   diverging : signed quantity, centred on zero
     #   sequential: non-negative quantity
     MEASURES = (
-        ("auc_inner",             "Plastic AUC (mean fitness over the search)",         "sequential"),
-        ("auc_outer",             "Relaxed AUC (mean fitness over the search)",         "sequential"),
+        ("auc_inner",             "Plastic AUC (mean fitness over the search)",         "diverging"),
+        ("auc_outer",             "Relaxed AUC (mean fitness over the search)",         "diverging"),
         ("F_change_inner",        "Plastic Fitness change over the search",             "diverging"),
         ("F_change_outer",        "Relaxed Fitness change over the search",             "diverging"),
         ("align_change",          "Change in cos(P (x) P, B)",                          "diverging"),
     )
- 
+    
     base = Config(
         N = len(S1),
         targets = S1,
         induction = True,
         induction_process = "r-round",
         figures_output = "Experiment5",
+        T = 10,
+        normalise_interactions = True,
+        normalise_energy = False,
+        energy_type = "differential",
+        M = 100,
+        fitness_type = "standard",
+        mutation_type = "phenotype",
+        normalise_fitness = True,
+        limit_fitness = True,
+        mutation_operation = "additive"
     )
  
     os.makedirs(base.figures_output, exist_ok = True)
@@ -65,6 +75,7 @@ if __name__ == "__main__":
                 label_measure = label,
                 scale = scale,
                 subtitle = f"energy gate: {gate}",
+                colour_scale = "symlog"
             )
  
             span = [f"{s['Z'].min():+.4f}..{s['Z'].max():+.4f}" for s in surfaces]

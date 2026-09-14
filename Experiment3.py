@@ -30,7 +30,7 @@ if __name__ == "__main__":
         N = len(S1),
         targets = S1,
         induction = True,
-        interactions_norm = True,
+        normalise_interactions = True,
         figures_output = "Experiment3"
     )
  
@@ -40,8 +40,6 @@ if __name__ == "__main__":
         "Acceptance\nrate",
         "AUC",
         "F\nchange",
-        "Accepted\navg. dE",
-        "Accepted\nstd. dE",
         "Align\nchange",
         "Accepted\navg. align",
         "Accepted\nstd. align",
@@ -93,8 +91,6 @@ if __name__ == "__main__":
                     data.append(history['acceptance_rate']) # Convert to a percentage in a string
                     data.append(history["auc"])
                     data.append(history["F_change"])
-                    data.append(history["avg_accept_E"])
-                    data.append(history["std_accept_E"])
                     data.append(history["align_change"])
                     data.append(history["avg_accept_A"])
                     data.append(history["std_accept_A"])
@@ -184,46 +180,46 @@ if __name__ == "__main__":
         ("appropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                              inappropriate = False,
-                                                             normalise = cfg.interactions_norm))),
+                                                             normalise = cfg.normalise_interactions))),
         ("inappropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                              inappropriate = True,
-                                                             normalise = cfg.interactions_norm))),
+                                                             normalise = cfg.normalise_interactions))),
         ("noisy appropriate interactions",
             _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                    inappropriate = False,
-                                                                   normalise = cfg.interactions_norm))),
+                                                                   normalise = cfg.normalise_interactions))),
         ("noisy inappropriate interactions",
             _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                    inappropriate = True,
-                                                                   normalise = cfg.interactions_norm))),
+                                                                   normalise = cfg.normalise_interactions))),
         ("random interactions",
             _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
-                                                        normalise = cfg.interactions_norm))),
+                                                        normalise = cfg.normalise_interactions))),
  
         ("modular random interactions",
             _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng,
-                                                         normalise = cfg.interactions_norm))),
+                                                         normalise = cfg.normalise_interactions))),
         ("modular appropriate interactions",
             _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                      inappropriate = False,
-                                                                     normalise = cfg.interactions_norm))),
+                                                                     normalise = cfg.normalise_interactions))),
         ("modular inappropriate interactions",
             _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                      inappropriate = True,
-                                                                     normalise = cfg.interactions_norm))),
+                                                                     normalise = cfg.normalise_interactions))),
  
         ("sparse random interactions",
             _sparse(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
-                                                         normalise = cfg.interactions_norm))),
+                                                         normalise = cfg.normalise_interactions))),
         ("sparse appropriate interactions",
             _sparse(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                               inappropriate = False,
-                                                              normalise = cfg.interactions_norm))),
+                                                              normalise = cfg.normalise_interactions))),
         ("sparse inappropriate interactions",
             _sparse(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                               inappropriate = True,
-                                                              normalise = cfg.interactions_norm))),
+                                                              normalise = cfg.normalise_interactions))),
     )
  
     os.makedirs(base.figures_output or ".", exist_ok = True)

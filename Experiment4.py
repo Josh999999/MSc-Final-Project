@@ -18,11 +18,11 @@ if __name__ == "__main__":
     #   diverging : signed quantity, centred on zero
     #   sequential: non-negative quantity
     MEASURES = (
-        ("auc",             "Plastic AUC (mean fitness over the search)", "sequential"),
+        ("auc",             "Plastic AUC (mean fitness over the search)", "diverging"),
         ("F_change",        "Fitness change over the search",             "diverging"),
-        ("acceptance_rate", "Acceptance rate",                            "sequential"),
+        ("acceptance_rate", "Acceptance rate",                            "diverging"),
         ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
-        ("avg_accept_A",    "Mean alignment of accepted phenotypes",      "sequential"),
+        ("avg_accept_A",    "Mean alignment of accepted phenotypes",      "diverging"),
     )
  
     base = Config(
@@ -31,9 +31,14 @@ if __name__ == "__main__":
         induction = True,
         induction_process = "plastic",
         figures_output = "Experiment4",
-        T = 4,
-        interactions_norm = True,
+        T = 10,
+        normalise_interactions = True,
         normalise_energy = False,
+        energy_type = "differential",
+        M = 100,
+        fitness_type = "standard",
+        mutation_type = "phenotype",
+        mutation_operation = "additive"
     )
  
     os.makedirs(base.figures_output, exist_ok = True)
@@ -58,7 +63,7 @@ if __name__ == "__main__":
                 )
                 surfaces.append(result)
  
- 
+  
             OUTPUT = os.path.join(base.figures_output,
                                   f"tenet_{gate}_{key}.png")
  
@@ -68,6 +73,7 @@ if __name__ == "__main__":
                 label_measure = label,
                 scale = scale,
                 subtitle = f"energy gate: {gate}",
+                colour_scale = "symlog"
             )
  
             span = [f"{s['Z'].min():+.4f}..{s['Z'].max():+.4f}" for s in surfaces]

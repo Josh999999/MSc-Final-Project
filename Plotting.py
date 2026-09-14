@@ -69,51 +69,87 @@ def plot_measure_surfaces(
         label_measure: str = "measure",
         scale: str = "sequential",
         subtitle: str = None,
-        colour_scale: str = "percentile",
-        clip_percentile: float = 98.0
+        colour_scale: str = "rank",
+        clip_percentile: float = 98.0,
+        cmap: str = None,
+        n_levels: int = None
     ):
- 
+    
     n = len(surfaces)
     allZ = np.concatenate([np.asarray(s["Z"]).ravel() for s in surfaces])
+    finite = allZ[np.isfinite(allZ)]
  
     diverging = (scale == "diverging")
-    cmap = "RdBu_r" if diverging else "viridis"
+ 
+    # viridis varies mainly in LIGHTNESS, so small differences are hard to see.
+    # turbo sweeps through many hues over the same range, which makes the same
+    # value difference far more visible.  Pass cmap= to override.
+    if cmap is None:
+        cmap = "coolwarm" if diverging else "turbo"
  
     lo, hi = float(np.nanmin(allZ)), float(np.nanmax(allZ))
-    clipped = False
     norm = None
+    vmin, vmax = lo, (hi if hi != lo else lo + 1e-12)
+    note = ""
  
  
-    if colour_scale == "symlog":
+    if colour_scale == "rank":
+        # Map each value to its quantile among all cells.  Equal numbers of
+        # cells per colour step, so dense regions of the distribution are
+        # spread out and sparse ones compressed.
+        qs = np.linspace(0.0, 1.0, 256)
+        levels = np.unique(np.quantile(finite, qs)) if finite.size else np.array([0.0, 1.0])
+ 
+ 
+        if levels.size < 2:
+            levels = np.array([float(levels[0]), float(levels[0]) + 1e-12])
+ 
+ 
+        norm = mcolors.BoundaryNorm(levels, ncolors = 256, clip = True)
+        note = "rank / histogram-equalised colour"
+ 
+    elif colour_scale == "symlog":
         m = float(np.nanmax(np.abs(allZ))) or 1.0
-        small = np.abs(allZ)[np.abs(allZ) > 0]
+        small = np.abs(finite)[np.abs(finite) > 0]
         lin = float(np.percentile(small, 25)) if small.size else m / 1e3
-        norm = mcolors.SymLogNorm(linthresh = max(lin, m / 1e6), vmin = -m if diverging else lo, vmax = m)
+        norm = mcolors.SymLogNorm(linthresh = max(lin, m / 1e6),
+                                  vmin = -m if diverging else lo, vmax = m)
+        note = "symlog colour"
  
     elif colour_scale == "percentile":
  
         if diverging:
-            m = float(np.percentile(np.abs(allZ), clip_percentile)) or 1.0
+            m = float(np.percentile(np.abs(finite), clip_percentile)) or 1.0
             vmin, vmax = -m, m
  
         else:
-            vmin = float(np.percentile(allZ, 100.0 - clip_percentile))
-            vmax = float(np.percentile(allZ, clip_percentile))
+            vmin = float(np.percentile(finite, 100.0 - clip_percentile))
+            vmax = float(np.percentile(finite, clip_percentile))
  
  
-            if vmax == vmin:
-                vmax = vmin + 1e-12
+        if vmax == vmin:
+            vmax = vmin + 1e-12
  
  
-        clipped = (lo < vmin) or (hi > vmax)
+        if lo < vmin or hi > vmax:
+            note = f"clipped at {clip_percentile:g}th pct; full range {lo:+.3g} to {hi:+.3g}"
  
     else:
+ 
         if diverging:
             m = max(abs(lo), abs(hi)) or 1.0
             vmin, vmax = -m, m
  
-        else:
-            vmin, vmax = lo, (hi if hi != lo else lo + 1e-12)
+ 
+    # Optional: quantise into n_levels discrete bands so steps are countable.
+    if n_levels:
+        base_cmap = plt.get_cmap(cmap)
+        cmap = mcolors.ListedColormap(base_cmap(np.linspace(0, 1, n_levels)))
+ 
+ 
+        if norm is None:
+            norm = mcolors.BoundaryNorm(np.linspace(vmin, vmax, n_levels + 1),
+                                        ncolors = n_levels)
  
  
     fig, axes = plt.subplots(1, n, figsize = (3.9 * n, 4.2), squeeze = False)
@@ -125,17 +161,11 @@ def plot_measure_surfaces(
         kw = dict(origin = "lower", cmap = cmap,
                   extent = [a1[0], a1[-1], a2[0], a2[-1]], aspect = "auto")
  
- 
-        if norm is not None:
-            im = ax.imshow(s["Z"], norm = norm, **kw)
- 
-        else:
-            im = ax.imshow(s["Z"], vmin = vmin, vmax = vmax, **kw)
- 
+        im = ax.imshow(s["Z"], norm = norm, **kw) if norm is not None \
+             else ax.imshow(s["Z"], vmin = vmin, vmax = vmax, **kw)
  
         ax.axhline(0, color = "k", lw = 0.5, alpha = 0.4)
         ax.axvline(0, color = "k", lw = 0.5, alpha = 0.4)
- 
         ax.set_title(f"magnitude $Y$ = {s['Y']:g}", fontsize = 10)
         ax.set_xlabel("Tenet 1:  cos(B, $SS^T$)")
  
@@ -147,16 +177,7 @@ def plot_measure_surfaces(
             ax.set_yticklabels([])
  
  
-    cbar_label = label_measure
- 
- 
-    if clipped:
-        cbar_label = f"{label_measure}\n(colour clipped at {clip_percentile:g}th pct; full range {lo:+.3g} to {hi:+.3g})"
- 
-    elif colour_scale == "symlog":
-        cbar_label = f"{label_measure}  (symlog)"
- 
- 
+    cbar_label = f"{label_measure}\n({note})" if note else label_measure
     fig.colorbar(im, ax = axes[0].tolist(), fraction = 0.025, pad = 0.02,
                  label = cbar_label)
  

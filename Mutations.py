@@ -31,8 +31,9 @@ def single_gene_mutation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -
 
 def phenotype_mutation(P: np.ndarray, cfg: Config, rng: np.random.Generator) -> tuple:
     P = np.asarray(P, dtype = np.float32).copy()
+    low_c = 0.1 * cfg.c 
 
-    magnitude = rng.uniform(low = 0.0, high = cfg.c, size = cfg.N)
+    magnitude = rng.uniform(low = low_c, high = cfg.c, size = cfg.N)
     sign = rng.choice([-1.0, 1.0], size = cfg.N)
 
 

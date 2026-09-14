@@ -13,20 +13,13 @@ def make_rng(seed: int = DEFAULT_SEED) -> np.random.Generator:
 
 
 
-def spawn_rngs(seed: int, n: int) -> list:
-
-    return list(np.random.default_rng(seed).spawn(n))
-
-
-
-
 # !-- Global variables --!
 
 # String Option lists
 DEVELOPMENT_SIGMOIDS = ("tanh", "linear")
 MUTATION_TYPES = ("single-gene", "phenotype", "perturbation")
 MUTATION_OPERATIONS = ("additive", "multiplicative")
-INDUCTION_PROCESSES = ("plastic", "hopfield", "r-round")
+INDUCTION_PROCESSES = ("plastic", "r-round")
 ENERGY_GATES = ("or", "and", "harsh", "deterministic")
 
 
@@ -35,11 +28,12 @@ ENERGY_GATES = ("or", "and", "harsh", "deterministic")
 @dataclass(frozen = True, eq = False)
 class Config:
 
-
     # !-- Core problem definition --!
-    N: int = 8                          # size of the phenotype (number of genes)
+    N: int = 8                              # size of the phenotype (number of genes)
     targets: np.ndarray = field(default_factory = lambda: np.array([S1, S2], dtype = float))
     seed: int = DEFAULT_SEED
+    fitness_type: str = "cosine"            # Can be "cosine" or "standard"
+    limit_fitness: bool = False             # Switch that limits gene representations affect on fitness to a magnitude of one
 
 
     # !-- Topology --!
@@ -59,9 +53,8 @@ class Config:
     
 
     # !-- Normalisation switches --!
-    interactions_norm: bool = False         # rescale B to Frobenius norm Y
-    genotype_norm: bool = False             # rescale G to unit length
-    fitness_norm: bool = True               # rescale fitness into [0, 1]
+    normalise_interactions: bool = False    # rescale B to Frobenius norm Y
+    normalise_fitness: bool = True          # rescale fitness into [0, 1]
 
 
     # !-- Evolution --!
@@ -76,7 +69,7 @@ class Config:
     record_every: int = 1000
     drift_selection: bool = True            # accept ties as well as strict gains
     symmetric_B: bool = False               # mirror each B mutation to (j, i)
-    baldwin_effect: bool = True            # PLACEHOLDER: accepted but currently inert
+    baldwin_effect: bool = True             # PLACEHOLDER: accepted but currently inert
 
 
     # !-- Interaction matrix construction --!
@@ -91,23 +84,25 @@ class Config:
 
 
     # !-- Induction --!
-    induction: bool = False
-    induction_process: str = "plastic"      # "plastic", "hopfield" or "r-round"
-    energy_gate: str = "or"                 # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", "harsh" or "deterministic"
-    energy_limit: float = 0.5               # Maximum amount sigmoid energy needs to achieve when `energy_gate = "harsh"` sigma(-dE/tau)
-    energy_type: str = "standard"           # Can be 'standard' or 'differential'
-    limit_slack: float = 0.01               # Maximum amount of slack to be given in the randomised scaling of the energy limit boundry inside the plastic selection proccess
-    M: int = 20                             # mutation attempts per plastic search
-    c: float = 0.1                          # single-gene mutation size
-    c_tau: float = 1.0                      # tau = c_tau * std(dE) over the pool
-    eta: float = 0.01                       # contrastive learning rate for B
-    rounds: int = 10                        # R rounds of develop -> plasticity -> induct
-    mutation_type: str = "single-gene"      # "single-gene", "phenotype" or "perturbation"
-    mutation_operation: str = "additive"    # "additive" or "multiplicative"
-    tau_floor: float = 1e-12                # guard for a degenerate candidate pool
-    normalise_energy: bool = True           # Rayleigh quotient: direction only
-    relative_mutation: bool = False         # scale the step by |P|/sqrt(N)
-    r_T: int = None                         # redevelopment time after updating
+    induction: bool = False                     # Toggle induction (inside of the evolutionary algorithm)
+    induction_process: str = "plastic"          # "plastic", "hopfield" or "r-round"
+    energy_gate: str = "or"                     # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", "harsh" or "deterministic"
+    energy_limit: float = 0.5                   # Maximum amount sigmoid energy needs to achieve when `energy_gate = "harsh"` sigma(-dE/tau)
+    energy_type: str = "standard"               # Can be 'standard' or 'differential'
+    energy_normalise_interactions: bool = False # Normalise the interaction matrix inside of the energy calculations
+    slack_limit: float = 0.01                   # Maximum amount of slack to be given in the randomised scaling of the energy limit boundry inside the plastic selection proccess
+    M: int = 20                                 # mutation attempts per plastic search
+    c: float = 2.0                              # single-gene mutation size
+    c_tau: float = 1.0                          # tau = c_tau * std(dE) over the pool
+    eta: float = 0.01                           # contrastive learning rate for B
+    rounds: int = 10                            # R rounds of develop -> plasticity -> induct
+    mutation_type: str = "single-gene"          # "single-gene", "phenotype" or "perturbation"
+    mutation_operation: str = "additive"        # "additive" or "multiplicative"
+    tau_floor: float = 1e-12                    # guard for a degenerate candidate pool
+    normalise_energy: bool = True               # Rayleigh quotient: direction only
+    relative_mutation: bool = False             # scale the step by |P|/sqrt(N)
+    r_T: int = None                             # redevelopment time after updating
+    relax: bool                                 # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
 
 
     # !-- Output --!
@@ -121,17 +116,6 @@ class Config:
 
         targets = np.atleast_2d(np.asarray(self.targets, dtype = float))
         object.__setattr__(self, "targets", targets)
-
-
-
-
-        """!---- Error Handling ----!"""
-        if self.mask is not None:
-            m = np.asarray(self.mask).astype(bool)
-
-
-            if m.shape != (self.N, self.N):
-                raise ValueError(f"mask is {m.shape}, expected ({self.N}, {self.N})")
 
 
 
@@ -154,73 +138,23 @@ class Config:
 
 
 
-        """!---- Error Handling ----!"""
-        if targets.shape[1] != self.N:
-            raise ValueError(
-                f"targets have {targets.shape[1]} genes but N={self.N}. "
-                "Pass targets and N together."
-            )
-
-
-        if self.K > self.N - 1:
-            raise ValueError(
-                f"K={self.K} exceeds the {self.N - 1} available partners for N={self.N}"
-            )
-
-
-        if self.mask_combine not in ("union", "intersection"):
-            raise ValueError(
-                "mask_combine must be 'union' or 'intersection'"
-            )
-
-
-        if self.sigmoid not in DEVELOPMENT_SIGMOIDS and not callable(self.sigmoid):
-            raise ValueError(
-                f"sigmoid must be callable or one of {DEVELOPMENT_SIGMOIDS}. "
-                "The logistic 'sigmoid' is not odd and is not valid for development."
-            )
-
-
-        if self.mutation_type not in MUTATION_TYPES:
-            raise ValueError(
-                f"mutation_type must be one of {MUTATION_TYPES}"
-            )
-
-
-        if self.mutation_operation not in MUTATION_OPERATIONS:
-            raise ValueError(
-                f"mutation_operation must be one of {MUTATION_OPERATIONS}"
-            )
-
-
-        if self.mutation_operation == "multiplicative" and self.c >= 1.0:
-            raise ValueError(
-                f"multiplicative mutation with c={self.c} >= 1 can produce a factor of "
-                "zero, which is not invertible. Use c < 1."
-            )
-
-
-        if self.induction_process.strip().lower() not in INDUCTION_PROCESSES:
-            raise ValueError(
-                "induction_process must be 'plastic', 'hopfield', 'r-round'"
-            )
-
-        
-        if self.symmetric_B and not np.array_equal(self.mask, self.mask.T):
-            raise ValueError(
-                "symmetric_B=True requires a symmetric mask"
-            )
-
-
-
-
 
 
     """!---- Decorators for Setting Variables ----!"""
     @property
     def baseline_fitness(self) -> float:
 
-        return 0.0 if self.fitness_norm else -1.0
+        if self.fitness_type == "cosine":
+
+            return 0.0 if self.normalise_fitness else -1.0
+
+        elif self.fitness_type == "standard":
+
+            return 0.0 if self.normalise_fitness else -self.N
+
+        else:
+
+            return 0.0
 
 
 
@@ -228,7 +162,17 @@ class Config:
     @property
     def optimal_fitness(self) -> float:
 
-        return 1.0
+        if self.fitness_type == "cosine":
+        
+            return 1.0
+
+        elif self.fitness_type == "standard":
+
+            return 1.0 if self.normalise_fitness else self.N
+
+        else:
+
+            return 1.0
 
 
 
@@ -252,16 +196,6 @@ class Config:
     def allowed(self) -> np.ndarray:
 
         return np.flatnonzero(self.mask.ravel())
-
-
-
-
-    def summary(self) -> dict:
-
-        return {
-            k: (v.tolist() if isinstance(v, np.ndarray) else v)
-            for k, v in self.__dict__.items()
-        }
 
 
 

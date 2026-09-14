@@ -32,7 +32,7 @@ if __name__ == "__main__":
         N = len(S1),
         targets = S1,
         induction = True,
-        interactions_norm = True,
+        normalise_interactions = True,
         figures_output = "Experiment6"
     )
  
@@ -88,7 +88,7 @@ if __name__ == "__main__":
             # Re-mask B to this topology
             BK = masked_matrix(B, mask)
  
-            if cfg.interactions_norm:
+            if cfg.normalise_interactions:
                 BK = adjust_interaction_magnitude(BK, cfg, Y = 1.0)
  
              
@@ -114,7 +114,7 @@ if __name__ == "__main__":
                 for i in range(0, n_seeds):
 
                     # Perform the plastic search - This search doesn't alter B; Fresh stream per gate, so the gates are compared on identical draws.
-                    history = plastic_search_return_wrapper(B = BK, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = True)
+                    history = plastic_search_return_wrapper(B = BK, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = False)
                     a += history[measurement]
 
 
@@ -170,34 +170,34 @@ if __name__ == "__main__":
         ("appropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                              inappropriate = False,
-                                                             normalise = cfg.interactions_norm))),
+                                                             normalise = cfg.normalise_interactions))),
         ("inappropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                              inappropriate = True,
-                                                             normalise = cfg.interactions_norm))),
+                                                             normalise = cfg.normalise_interactions))),
         ("noisy appropriate interactions",
             _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                    inappropriate = False,
-                                                                   normalise = cfg.interactions_norm))),
+                                                                   normalise = cfg.normalise_interactions))),
         ("noisy inappropriate interactions",
             _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                    inappropriate = True,
-                                                                   normalise = cfg.interactions_norm))),
+                                                                   normalise = cfg.normalise_interactions))),
         ("random interactions",
             _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
-                                                        normalise = cfg.interactions_norm))),
+                                                        normalise = cfg.normalise_interactions))),
  
         ("modular random interactions",
             _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng,
-                                                         normalise = cfg.interactions_norm))),
+                                                         normalise = cfg.normalise_interactions))),
         ("modular appropriate interactions",
             _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                      inappropriate = False,
-                                                                     normalise = cfg.interactions_norm))),
+                                                                     normalise = cfg.normalise_interactions))),
         ("modular inappropriate interactions",
             _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
                                                                      inappropriate = True,
-                                                                     normalise = cfg.interactions_norm))),
+                                                                     normalise = cfg.normalise_interactions))),
     )
  
     os.makedirs(base.figures_output or ".", exist_ok = True)

@@ -42,7 +42,7 @@ def r_round_induction(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, 
 
 
         # Re-Normalise the matrix (after learning)
-        if cfg.interactions_norm:
+        if cfg.normalise_interactions:
             B = normalise_interactions(B, cfg)
 
         
