@@ -1,5 +1,4 @@
 """External Imports (Libraries and APIs)"""
-from dataclasses import replace
 import os
  
  
@@ -12,25 +11,32 @@ from Plotting import plot_measure_surfaces
  
  
  
+# Where this experiment writes its figures.  Kept out of Config: it is a
+# property of the SCRIPT, not of the model being configured.
+FIGURES_OUTPUT = "Experiment4"
+
+
+
+
 if __name__ == "__main__":
  
     # What the plastic search reports, and how each should be coloured.
     #   diverging : signed quantity, centred on zero
     #   sequential: non-negative quantity
     MEASURES = (
-        ("auc",             "Plastic AUC (mean fitness over the search)", "diverging"),
-        ("F_change",        "Fitness change over the search",             "diverging"),
-        ("acceptance_rate", "Acceptance rate",                            "diverging"),
-        ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
-        ("avg_accept_A",    "Mean alignment of accepted phenotypes",      "diverging"),
+        # diverging only where the measure is genuinely SIGNED.
+        ("auc_inner",             "Plastic AUC (mean fitness over the search)",         "sequential"),
+        ("auc_outer",             "Relaxed AUC (mean fitness over the search)",         "sequential"),
+        ("F_change_inner",        "Plastic Fitness change over the search",             "diverging"),
+        ("F_change_outer",        "Relaxed Fitness change over the search",             "diverging"),
+        ("align_change",          "Change in cos(P (x) P, B)",                          "diverging"),
     )
- 
-    base = Config(
+    
+    cfg = Config(
         N = len(S1),
         targets = S1,
         induction = True,
-        induction_process = "plastic",
-        figures_output = "Experiment4",
+        induction_process = "r-round",
         T = 10,
         normalise_interactions = True,
         normalise_energy = False,
@@ -38,10 +44,11 @@ if __name__ == "__main__":
         M = 100,
         fitness_type = "standard",
         mutation_type = "phenotype",
-        mutation_operation = "additive"
+        normalise_fitness = True,
+        limit_fitness = True
     )
  
-    os.makedirs(base.figures_output, exist_ok = True)
+    os.makedirs(FIGURES_OUTPUT, exist_ok = True)
  
  
     # One figure per (gate, measure): panels across the magnitude sweep, each
@@ -54,7 +61,7 @@ if __name__ == "__main__":
  
  
             for Y in [0.5, 1.0, 2.0, 6.0]:
-                cfg = replace(base, Y = Y, energy_gate = gate)
+                cfg = cfg.set(Y = Y, energy_gate = gate)
  
                 # Same stream per panel so the panels are comparable.
                 result = plastic_measure_surface(
@@ -63,8 +70,8 @@ if __name__ == "__main__":
                 )
                 surfaces.append(result)
  
-  
-            OUTPUT = os.path.join(base.figures_output,
+ 
+            OUTPUT = os.path.join(FIGURES_OUTPUT,
                                   f"tenet_{gate}_{key}.png")
  
             plot_measure_surfaces(

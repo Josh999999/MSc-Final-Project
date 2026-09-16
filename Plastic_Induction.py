@@ -4,7 +4,7 @@ import numpy as np
  
 """Local Imports"""
 from Config import Config
-from GRN import evaluate_fitness, sigmoid_sigma
+from GRN import DTYPE, evaluate_fitness, sigmoid_sigma
 from Mutations import compute_mutation
 from Interactions import adjust_interaction_magnitude
  
@@ -18,7 +18,7 @@ def energy(P: np.ndarray, B: np.ndarray, cfg: Config, normalise: bool = True, no
         B = adjust_interaction_magnitude(B, cfg = cfg, Y = 1.0, inplace = False)
 
 
-    P = np.asarray(P, dtype = float)
+    P = np.asarray(P, dtype = DTYPE)
     q = float(-0.5 * P @ (B @ P))
  
  
@@ -42,8 +42,8 @@ def differential_energy(P: np.ndarray, P_try: np.ndarray, B: np.ndarray, cfg: Co
         B = adjust_interaction_magnitude(B, cfg = cfg, Y = 1.0, inplace = False)
 
         
-    P = np.asarray(P, dtype = float)
-    P_try = np.asarray(P_try, dtype = float)
+    P = np.asarray(P, dtype = DTYPE)
+    P_try = np.asarray(P_try, dtype = DTYPE)
     dP = P_try - P
     q = float(-0.5 * dP @ (B @ dP))
  
@@ -62,7 +62,7 @@ def differential_energy(P: np.ndarray, P_try: np.ndarray, B: np.ndarray, cfg: Co
  
  
 def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise: bool = True) -> np.ndarray:    
-    h = np.asarray(h, dtype = float)
+    h = np.asarray(h, dtype = DTYPE)
  
  
     if not normalise:
@@ -70,7 +70,7 @@ def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise:
         return -c * h
  
  
-    P = np.asarray(P, dtype = float)
+    P = np.asarray(P, dtype = DTYPE)
     q = float(P @ h)
     n = float(P @ P)
  
@@ -91,8 +91,8 @@ def adaptive_tau(dE_pool: np.ndarray, cfg: Config) -> float:
  
  
 def phenotype_alignment(P: np.ndarray, B: np.ndarray, cfg: Config) -> float:
-    P = np.asarray(P, dtype = float)
-    B = np.asarray(B, dtype = float)
+    P = np.asarray(P, dtype = DTYPE)
+    B = np.asarray(B, dtype = DTYPE)
  
     PP = np.outer(P, P)
  
@@ -112,8 +112,8 @@ def plastic_search(
         rng: np.random.Generator,
         S: np.ndarray = None,
     ) -> dict:
-    S = cfg.target if S is None else np.asarray(S, dtype = float)
-    P = np.asarray(P, dtype = float).copy()        
+    S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
+    P = np.asarray(P, dtype = DTYPE).copy()        
  
     F = evaluate_fitness(P, S, cfg)
     A = phenotype_alignment(P, B, cfg) 
@@ -134,10 +134,12 @@ def plastic_search(
         dE = 0
 
         if cfg.energy_type == "standard":
-            dE = energy(P_try, B, normalise = cfg.normalise_energy) - energy(P, B, normalise = cfg.normalise_energy)
+            E_try = energy(P_try, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
+            E = energy(P, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
+            dE = E_try - E
             
         elif cfg.energy_type == "differential":
-            dE = differential_energy(P, P_try, B, normalise = cfg.normalise_energy)
+            dE = differential_energy(P, P_try, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
 
         
         # Alignment of the CANDIDATE: measuring P here records the pre-move state, so the curve lags and align_end misses the last accepted move.
@@ -173,9 +175,6 @@ def plastic_search(
             elif cfg.energy_gate == "harsh":
                 slack = rng.uniform(0, cfg.slack_limit) 
                 accept = (F_try > F) and (cfg.energy_limit - slack < w)
-
-            else:
-                accept = (F_try > F) and (dE <= 0)
     
         elif cfg.energy_gate == "deterministic":    
             accept = (F_try > F) and (dE <= 0)
@@ -201,14 +200,7 @@ def plastic_search(
  
  
  
-def plastic_search_return_wrapper(
-        B: np.ndarray,
-        P: np.ndarray,
-        cfg: Config,
-        rng: np.random.Generator,
-        S: np.ndarray = None,
-        limit_return: bool = False
-    ) -> dict:
+def plastic_search_return_wrapper(B: np.ndarray, P: np.ndarray, cfg: Config, rng: np.random.Generator, S: np.ndarray = None, limit_return: bool = False) -> dict:
  
     B, P, F, curve, align_curve, accepted_alignments, accepted = plastic_search(B, P, cfg, rng, S)
  
@@ -219,7 +211,7 @@ def plastic_search_return_wrapper(
         return {
             "P": P,
             "F": float(F),
-            "auc": float(np.mean(curve)) if curve.size else 0.0
+            "auc": float(np.mean(curve)) if len(curve) else 0.0
         }
  
 
@@ -231,7 +223,7 @@ def plastic_search_return_wrapper(
         "F_change": float(curve[-1] - curve[0]),
         "avg_accept_A": float(np.mean(accepted_alignments)) if len(accepted_alignments) else 0.0,
         "std_accept_A": float(np.std(accepted_alignments)) if len(accepted_alignments) else 0.0, 
-        "auc": float(np.mean(curve)) if curve.size else 0.0,                 # area under the ABSOLUTE curve
+        "auc": float(np.mean(curve)) if len(curve) else 0.0,                 # area under the ABSOLUTE curve
         "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else 0.0,        # collapse signature (5.6)
         "curve": curve,
         "align_curve": align_curve,

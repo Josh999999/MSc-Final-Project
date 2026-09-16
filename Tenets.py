@@ -4,7 +4,7 @@ import numpy as np
  
 """Local Imports"""
 from Config import Config
-from GRN import _cos, handle_develop, evaluate_fitness, masked_matrix
+from GRN import DTYPE, _cos, handle_develop, evaluate_fitness, masked_matrix
 from Induction import handle_induction
 from Plastic_Induction import energy, differential_energy
  
@@ -40,11 +40,10 @@ def _interpolate_to_cosine(u: np.ndarray, v: np.ndarray, a: float) -> np.ndarray
  
 def ideal_hebbian(cfg: Config, S: np.ndarray = None) -> np.ndarray:
     S = cfg.targets if S is None else S
-    S = np.atleast_2d(np.asarray(S, dtype = float))
+    S = np.atleast_2d(np.asarray(S, dtype = DTYPE))
  
     H = S.T @ S
  
-    np.fill_diagonal(H, 0.0)
  
  
     return masked_matrix(H, cfg.mask)
@@ -53,9 +52,7 @@ def ideal_hebbian(cfg: Config, S: np.ndarray = None) -> np.ndarray:
  
  
 def measure_tenet1(B: np.ndarray, cfg: Config, S: np.ndarray = None) -> float:
-    B = np.asarray(B, dtype = float).copy()
-    np.fill_diagonal(B, 0.0)
- 
+    B = np.asarray(B, dtype = DTYPE)
     H = ideal_hebbian(cfg, S)
  
  
@@ -69,29 +66,6 @@ def measure_tenet2(G: np.ndarray, cfg: Config, S: np.ndarray = None) -> float:
  
  
     return _cos(G, S)
- 
- 
- 
-def measure_phenotype_alignment(P: np.ndarray, B: np.ndarray, cfg: Config) -> float:
-    P = np.asarray(P, dtype = float)
-    B = np.asarray(B, dtype = float)
- 
-    PP = np.outer(P, P).copy()
-    np.fill_diagonal(PP, 0.0)
- 
- 
-    return _cos(PP[cfg.mask], B[cfg.mask])
- 
- 
- 
-def split_gain(B: np.ndarray) -> tuple:
-    """Separate B into direction (unit Frobenius) and magnitude."""
-    B = np.asarray(B, dtype = float)
-    Y = float(np.linalg.norm(B))
- 
- 
-    return (B / Y if Y > 0 else B.copy()), Y
- 
  
  
  
@@ -109,7 +83,6 @@ def synthesise_B(a1: float, cfg: Config, rng: np.random.Generator, S: np.ndarray
         R = (R + R.T) / 2.0
  
  
-    np.fill_diagonal(R, 0.0)
     R = masked_matrix(R, cfg.mask)
     v = _orthogonal_component(R.ravel()[idx], u)
  
@@ -121,7 +94,6 @@ def synthesise_B(a1: float, cfg: Config, rng: np.random.Generator, S: np.ndarray
  
     if symmetric:               # projection can perturb symmetry slightly
         B = masked_matrix((B + B.T) / 2.0, cfg.mask)
-        np.fill_diagonal(B, 0.0)
  
  
     return B / np.linalg.norm(B)
@@ -136,7 +108,7 @@ def synthesise_G(
         S: np.ndarray = None,
         amplitude: float = 1.0
     ) -> np.ndarray:
-    S = cfg.target if S is None else np.asarray(S, dtype = float)
+    S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
  
     u = _unit(S)
     v = _orthogonal_component(rng.normal(size = S.shape), u)
@@ -158,7 +130,7 @@ def fitness_surface(
         induction_measure: str = "auc",
         measure: str = "fitness"
     ) -> dict:
-    S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = float)
+    S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = DTYPE)
  
  
     if S_eval.size != cfg.N:
@@ -205,10 +177,10 @@ def fitness_surface(
                         acc += evaluate_fitness(P, S_eval, cfg)
 
                     elif measure == "energy":
-                        acc += energy(P, B, normalise = cfg.normalise_energy)
+                        acc += energy(P, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
 
                     elif measure == "diff_energy":
-                        acc += differential_energy(P, G, B, normalise = cfg.normalise_energy)
+                        acc += differential_energy(P, G, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
 
                     else:
                         acc += 1
@@ -224,7 +196,7 @@ def fitness_surface(
         "Y": cfg.Y,
         "max_tenet1_error": float(np.max(np.abs(check1))),
         "max_tenet2_error": float(np.max(np.abs(check2))),
-        "config": cfg,
+        "config": cfg.copy(),   # snapshot: cfg is mutable and may change after this call
     }
  
  
@@ -238,7 +210,7 @@ def plastic_measure_surface(
         amplitude: float = 1.0,
         grid: int = 15
     ) -> dict:
-    S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = float)
+    S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = DTYPE)
  
  
     if S_eval.size != cfg.N:
@@ -294,6 +266,6 @@ def plastic_measure_surface(
         "measure": measure,
         "max_tenet1_error": float(np.max(np.abs(check1))),
         "max_tenet2_error": float(np.max(np.abs(check2))),
-        "config": cfg,
+        "config": cfg.copy(),   # snapshot: cfg is mutable and may change after this call
     }
  

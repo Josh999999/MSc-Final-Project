@@ -1,84 +1,222 @@
 """External Imports (Libraries and APIs)"""
-from dataclasses import replace
-import os
+import os  
  
  
 """Local Imports"""
-from Config import Config, make_rng, ENERGY_GATES
+from Config import Config, make_rng, with_mask, ENERGY_GATES
 from Data import S1
-from Tenets import plastic_measure_surface
-from Plotting import plot_measure_surfaces
+from Interactions import (appropriate_interactions,
+                          random_interactions,
+                          noisy_appropriate_interactions,
+                          modular_interactions,
+                          modular_appropriate_interactions
+                          )
+from GRN import sparse_topology, masked_matrix, diag_mask
+from Interactions import adjust_interaction_magnitude
+from Plastic_Induction import plastic_search_return_wrapper
+from GRN import handle_develop
+from Plotting import create_search_table
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+# Where this experiment writes its figures.  Kept out of Config: it is a
+# property of the SCRIPT, not of the model being configured.
+FIGURES_OUTPUT = "Experiment5"
+
+
+
+
+if __name__ == "__main__":
+ 
+    # One config, constructed and validated up front. No ordering hazard:
+    # targets, N and the mask are checked against each other in __post_init__.
+    cfg = Config(
+        N = len(S1),
+        targets = S1,
+        induction = True,
+        normalise_interactions = True,
+    )
+ 
+    MUTATIONS = [25, 50, 100, 250, 400]
+ 
+    # Generate the starting profile (Constant used for all interaction matricies)
+    G = make_rng(cfg.seed).uniform(low = -1, high = 1, size = cfg.N)
+ 
+ 
+    # Create the masks
+    masks = []
+    # K is the out-degree BEFORE symmetrisation, so it cannot exceed N-1.
+    # K = N-1 is fully dense; small K leaves few active interactions.
+    SPARSITIES = [1, 2, 4, 6, cfg.N - 1]
+ 
+    for K in SPARSITIES:
+        base_K = cfg.copy(K = K)          # copy: each mask is built from its own K
+        mask = sparse_topology(base_K, make_rng(cfg.seed))
+        masks.append(mask)
+    
+ 
+ 
+ 
+    """Test the Plastic search for a range of different initialised interaction matricies"""
+ 
+    # Replicable functionality for running the experiment
+    def _experiment5(cfg: Config, measurement: str = "align_change", gate: str = "or", n_seeds: int = 8):
+
+        # Create the column titles using the name of the measurement
+        measurement_str = measurement.replace('_', ' ').strip().lower().capitalize()
+
+        MUTATION_TITLES = tuple(f"{measurement_str}\nM = {M}" for M in MUTATIONS)
+ 
+        COLUMN_TITLES = (
+            "Sparsity (K)",
+            "Density",
+        ) + MUTATION_TITLES
+
+    
+        # Save the search data
+        search_data = []
+
+    
+        # Set the Energy gate
+        cfg = cfg.set(energy_gate = gate)
+ 
+ 
+        for mask, K in zip(masks, SPARSITIES):
+
+            # Config is a frozen dataclass: build a new one per cell.
+            cfg.set(mask = mask, K = K)
+ 
+            # Re-mask B to this topology
+            BK = masked_matrix(B, mask)
+ 
+            if cfg.normalise_interactions:
+                BK = adjust_interaction_magnitude(BK, cfg, Y = 1.0)
+ 
+             
+            # Run the Plastic search for a sweep of energy gate protocols
+            P = handle_develop(G, BK, cfg, induction = False) # Develop the Phenotype as the cfg for the plastic search
+
+
+            # Generate new row in the table
+            density = float(mask.sum()) / float(cfg.N * (cfg.N - 1)) if cfg.self_interaction else float(mask.sum()) / float(cfg.N ** 2)
+            row_data = [K, density]
+
+
+            # Save the search data for the current row for the alignment under different mutation rates
+            for M in MUTATIONS:
+
+                # Alter the mutation rate
+                cfg.M = M
+
+
+                # Run the experiment multiple times for robustness
+                a = 0
+
+                for i in range(0, n_seeds):
+
+                    # Perform the plastic search - This search doesn't alter B; Fresh stream per gate, so the gates are compared on identical draws.
+                    history = plastic_search_return_wrapper(B = BK, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = False)
+                    a += history[measurement]
+
+
+                # Append the measurement for the mutation rate (M)
+                data = a / n_seeds
+                row_data.append(data)
+
+
+            # Collect the row data
+            search_data.append(row_data) 
+
+    
+        # Display the results of the experiment and analysis in a table
+        create_search_table(
+            column_tites = COLUMN_TITLES, 
+            row_results = search_data, 
+            save_loc = OUTPUT, 
+            title = f"Joint Effect of Sparsity and Mutation Rate in the plastic search under {interaction_type} ({gate} Gate)")
 
  
  
  
-if __name__ == "__main__":
+    # !-- Sweep the interaction builders --!
+    #
+    # The builder controls how well B already encodes the target, i.e. Tenet 1.
+    # Appropriate interactions make development converge onto the target, so the
+    # search starts at F = 1 and has no headroom; the noisy and random builders
+    # leave room for the gates to differ.
  
-    # What the plastic search reports, and how each should be coloured.
-    #   diverging : signed quantity, centred on zero
-    #   sequential: non-negative quantity
-    MEASURES = (
-        ("auc_inner",             "Plastic AUC (mean fitness over the search)",         "diverging"),
-        ("auc_outer",             "Relaxed AUC (mean fitness over the search)",         "diverging"),
-        ("F_change_inner",        "Plastic Fitness change over the search",             "diverging"),
-        ("F_change_outer",        "Relaxed Fitness change over the search",             "diverging"),
-        ("align_change",          "Change in cos(P (x) P, B)",                          "diverging"),
+    # Each builder returns (B, cfg).  Most keep the default dense mask, but the
+    # sparse case must change the CONFIG as well, because the mask governs which
+    # entries the search, the energy and the alignment measure all look at.
+ 
+    def _dense(build):
+        """Builder that simply returns the matrix (mask is set later)."""
+ 
+        def wrapped(cfg, rng):            
+            cfg = with_mask(cfg, diag_mask(cfg))
+            
+ 
+            return build(cfg, rng)
+ 
+ 
+        return wrapped
+ 
+ 
+ 
+ 
+    # Appropriate / inappropriate crossed with dense, modular and sparse
+    # topologies: the topology sets the structure, the appropriateness sets
+    # whether B points toward the target or away from it.
+    BUILDERS = (
+        ("appropriate interactions",
+            _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                             inappropriate = False,
+                                                             normalise = cfg.normalise_interactions))),
+        ("inappropriate interactions",
+            _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                             inappropriate = True,
+                                                             normalise = cfg.normalise_interactions))),
+        ("noisy appropriate interactions",
+            _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                   inappropriate = False,
+                                                                   normalise = cfg.normalise_interactions))),
+        ("noisy inappropriate interactions",
+            _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                   inappropriate = True,
+                                                                   normalise = cfg.normalise_interactions))),
+        ("random interactions",
+            _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
+                                                        normalise = cfg.normalise_interactions))),
+ 
+        ("modular random interactions",
+            _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng,
+                                                         normalise = cfg.normalise_interactions))),
+        ("modular appropriate interactions",
+            _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                     inappropriate = False,
+                                                                     normalise = cfg.normalise_interactions))),
+        ("modular inappropriate interactions",
+            _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
+                                                                     inappropriate = True,
+                                                                     normalise = cfg.normalise_interactions))),
     )
+ 
+    os.makedirs(FIGURES_OUTPUT or ".", exist_ok = True)
+ 
+ 
+    for interaction_type, build in BUILDERS:
+
+        for gate in ENERGY_GATES: 
+            # Same seed for every builder so the comparison is like for like.
+            B = build(cfg, make_rng(cfg.seed))
     
-    base = Config(
-        N = len(S1),
-        targets = S1,
-        induction = True,
-        induction_process = "r-round",
-        figures_output = "Experiment5",
-        T = 10,
-        normalise_interactions = True,
-        normalise_energy = False,
-        energy_type = "differential",
-        M = 100,
-        fitness_type = "standard",
-        mutation_type = "phenotype",
-        normalise_fitness = True,
-        limit_fitness = True,
-        mutation_operation = "additive"
-    )
- 
-    os.makedirs(base.figures_output, exist_ok = True)
- 
- 
-    # One figure per (gate, measure): panels across the magnitude sweep, each
-    # panel a heatmap over Tenet 1 (x) by Tenet 2 (y).
-    for gate in ENERGY_GATES:
- 
-        for key, label, scale in MEASURES:
- 
-            surfaces = []
- 
- 
-            for Y in [0.5, 1.0, 2.0, 6.0]:
-                cfg = replace(base, Y = Y, energy_gate = gate)
- 
-                # Same stream per panel so the panels are comparable.
-                result = plastic_measure_surface(
-                    cfg, make_rng(cfg.seed),
-                    measure = key, n_seeds = 8, grid = 15
-                )
-                surfaces.append(result)
- 
- 
-            OUTPUT = os.path.join(base.figures_output,
-                                  f"tenet_{gate}_{key}.png")
- 
-            plot_measure_surfaces(
-                surfaces,
-                saveloc = OUTPUT,
-                label_measure = label,
-                scale = scale,
-                subtitle = f"energy gate: {gate}",
-                colour_scale = "symlog"
-            )
- 
-            span = [f"{s['Z'].min():+.4f}..{s['Z'].max():+.4f}" for s in surfaces]
-            print(f"{gate:>6} | {key:<16} ranges per Y: {'  '.join(span)}")
-            print(f"         wrote {OUTPUT}")
- 
+            OUTPUT = os.path.join(FIGURES_OUTPUT or ".", f"plastic_search_table_{interaction_type.replace(' ', '_')}_{gate}Gate.png")
+    
+            print(f"running: {interaction_type}")
+            _experiment5(cfg, measurement = "F_change", gate = gate)
+            print(f"  wrote {OUTPUT}")
+    

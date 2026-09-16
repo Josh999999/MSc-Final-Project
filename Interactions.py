@@ -4,22 +4,20 @@ import numpy as np
  
 """Local Imports"""
 from Config import Config
-from GRN import masked_matrix
+from GRN import DTYPE, masked_matrix
  
- 
+
  
  
 def _finalise(B: np.ndarray, cfg: Config, symmetric: bool = None, normalise: bool = None) -> np.ndarray:
     symmetric = cfg.symmetric_mask if symmetric is None else symmetric
     normalise = cfg.normalise_interactions if normalise is None else normalise
  
-    B = np.asarray(B, dtype = float).copy()
-    np.fill_diagonal(B, 0.0)
+    B = np.asarray(B, dtype = DTYPE).copy()
  
  
     if symmetric:
         B = (B + B.T) / 2.0
-        np.fill_diagonal(B, 0.0)
  
  
     B = masked_matrix(B, cfg.mask, inplace = True)
@@ -51,15 +49,8 @@ def random_interactions(cfg: Config, rng: np.random.Generator, normalise: bool =
  
  
  
-def appropriate_interactions(
-        cfg: Config,
-        rng: np.random.Generator,
-        S: np.ndarray = None,
-        inappropriate: bool = False,
-        normalise: bool = None
-    ) -> np.ndarray:
- 
-    S = cfg.target if S is None else np.asarray(S, dtype = float)
+def appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarray = None, inappropriate: bool = False, normalise: bool = None) -> np.ndarray: 
+    S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
  
     # Set value of signs in alignment with the target
     signs = np.outer(S, S)
@@ -81,29 +72,8 @@ def appropriate_interactions(
  
  
  
-def small_appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarray = None) -> np.ndarray:
- 
-    B = appropriate_interactions(cfg, rng, S = S, normalise = False)
- 
-    # Magnitude is forced regardless of cfg.normalise_interactions: a "small"
-    # matrix that ignored its own magnitude would be meaningless.
-    r = np.linalg.norm(B, ord = "fro")
- 
- 
-    return B * (cfg.small_magnitude / r) if r > 0 else B
- 
- 
- 
- 
-def noisy_appropriate_interactions(
-        cfg: Config,
-        rng: np.random.Generator,
-        S: np.ndarray = None,
-        normalise: bool = None,
-        inappropriate: bool = False
-    ) -> np.ndarray:
- 
-    S = cfg.target if S is None else np.asarray(S, dtype = float)
+def noisy_appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarray = None, normalise: bool = None, inappropriate: bool = False) -> np.ndarray: 
+    S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
  
     signs = np.outer(S, S)
     flip = rng.random(size = (cfg.N, cfg.N)) < cfg.flip_frac
@@ -174,9 +144,9 @@ def module_assignment(N: int, n_modules: int) -> np.ndarray:
  
  
 def module_sizes(N: int, n_modules: int) -> np.ndarray:
-    base = N // n_modules
-    sizes = np.full(n_modules, base, dtype = int)
-    sizes[: N - base * n_modules] += 1
+    cfg = N // n_modules
+    sizes = np.full(n_modules, cfg, dtype = int)
+    sizes[: N - cfg * n_modules] += 1
  
  
     return sizes

@@ -1,5 +1,4 @@
 """External Imports (Libraries and APIs)"""
-from dataclasses import replace
 import os
 
 
@@ -12,32 +11,46 @@ from Plotting import plot_fitness_surface
 
 
 
+# Where this experiment writes its figures.  Kept out of Config: it is a
+# property of the SCRIPT, not of the model being configured.
+FIGURES_OUTPUT = "Experiment1"
+
+
+
+
 if __name__ == "__main__":
 
     # One config, constructed and validated up front. No ordering hazard:
     # targets, N and the mask are checked against each other in __post_init__.
-    base = Config(
+    cfg = Config(
         N = len(S1),
         targets = S1,
-        figures_output = "Experiment1"
     )
 
 
-    MEASURES = ("fitness", "energy", "diff_energy")
+    # (key, axis label, colour scale).  energy and diff_energy are SIGNED, so
+    # they need a diverging scale centred on zero; fitness is non-negative.
+    N_SEEDS = 8
 
-    for measure in MEASURES:
+    MEASURES = (
+        ("fitness",     "Fitness",                        "sequential"),
+        ("energy",      "Energy  -0.5 P.B.P",             "diverging"),
+        ("diff_energy", "Differential energy (G -> P)",    "diverging"),
+    )
+
+    for measure, label, scale in MEASURES:
 
         surfaces = []
 
 
         for Y in [0.5, 1.0, 2.0, 6.0]:
-            cfg = replace(base, Y = Y)
+            cfg = cfg.set(Y = Y)
             rng = make_rng(cfg.seed)        # same stream per panel, so panels are comparable
 
             result = fitness_surface(
                 cfg, 
                 rng, 
-                n_seeds = 8,
+                n_seeds = N_SEEDS,
                 amplitude = 1.0,
                 grid = 21,
                 measure = measure
@@ -46,7 +59,13 @@ if __name__ == "__main__":
 
 
         # Handle the output folder
-        OUTPUT = os.path.join(cfg.figures_output or ".", f"tenet_{measure}_surface.png")
-        os.makedirs(cfg.figures_output, exist_ok = True)
+        OUTPUT = os.path.join(FIGURES_OUTPUT or ".", f"tenet_{measure}_surface.png")
+        os.makedirs(FIGURES_OUTPUT, exist_ok = True)
 
-        plot_fitness_surface(surfaces, saveloc = OUTPUT)
+        plot_fitness_surface(
+            surfaces,
+            saveloc = OUTPUT,
+            label_measure = label,
+            scale = scale,
+            n_seeds = N_SEEDS
+        )

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from Data import S1, S2, DEFAULT_SEED
-
+ 
 
 
 
@@ -16,16 +16,16 @@ def make_rng(seed: int = DEFAULT_SEED) -> np.random.Generator:
 # !-- Global variables --!
 
 # String Option lists
-DEVELOPMENT_SIGMOIDS = ("tanh", "linear")
-MUTATION_TYPES = ("single-gene", "phenotype", "perturbation")
-MUTATION_OPERATIONS = ("additive", "multiplicative")
-INDUCTION_PROCESSES = ("plastic", "r-round")
+# Only ENERGY_GATES is consumed elsewhere (the experiments sweep it).  The
+# other option lists existed for the validation block in __post_init__, which
+# no longer exists; the dispatch tables in GRN.SIGMOIDS and
+# Mutations.MUTATION_TYPES are the live definitions.
 ENERGY_GATES = ("or", "and", "harsh", "deterministic")
 
 
 
 
-@dataclass(frozen = True, eq = False)
+@dataclass(eq = False)
 class Config:
 
     # !-- Core problem definition --!
@@ -38,6 +38,7 @@ class Config:
 
     # !-- Topology --!
     mask: np.ndarray = None                 # None -> dense minus the diagonal
+    sparse_interactions: bool = False       # Create a mask for a sparse interaction matrix
     K: int = 4                              # out-degree before symmetrisation
     symmetric_mask: bool = True
     mask_combine: str = "union"             # "union" (mean degree ~2K) or "intersection"
@@ -65,10 +66,10 @@ class Config:
     n_mut_B: int = 1
     n_generations: int = 200_000
     switch_every: int = 2000
-    record_trajectories: bool = True
+    record: bool = True
     record_every: int = 1000
     drift_selection: bool = True            # accept ties as well as strict gains
-    symmetric_B: bool = False               # mirror each B mutation to (j, i)
+    symmetric_interactions: bool = False               # mirror each B mutation to (j, i)
     baldwin_effect: bool = True             # PLACEHOLDER: accepted but currently inert
 
 
@@ -79,7 +80,6 @@ class Config:
     intra: float = 1.0
     inter: float = 0.05
     flip_frac: float = 0.25
-    small_magnitude: float = 0.1
     Y: float = 1.0                          # magnitude (gain) applied to B
 
 
@@ -97,45 +97,102 @@ class Config:
     eta: float = 0.01                           # contrastive learning rate for B
     rounds: int = 10                            # R rounds of develop -> plasticity -> induct
     mutation_type: str = "single-gene"          # "single-gene", "phenotype" or "perturbation"
-    mutation_operation: str = "additive"        # "additive" or "multiplicative"
     tau_floor: float = 1e-12                    # guard for a degenerate candidate pool
     normalise_energy: bool = True               # Rayleigh quotient: direction only
     relative_mutation: bool = False             # scale the step by |P|/sqrt(N)
     r_T: int = None                             # redevelopment time after updating
-    relax: bool                                 # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
-
-
-    # !-- Output --!
-    figures_output: str = ""
+    relax: bool = False                         # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
+    induction_interactions: str = "inclusive"   # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
 
 
 
 
 
     def __post_init__(self):
+        self._auto_mask = self.mask is None
+        self._auto_r_T  = self.r_T is None
 
-        targets = np.atleast_2d(np.asarray(self.targets, dtype = float))
-        object.__setattr__(self, "targets", targets)
+        self.targets = np.atleast_2d(np.asarray(self.targets, dtype = float))
+        self._rebuild_mask()
+        self._rebuild_r_T()
 
 
 
 
-        """!---- Configuring Object Values ----!"""
-        if self.mask is None:
+    """!---- Derived values ----!"""
+    def _rebuild_mask(self):
+
+        if self._auto_mask:
             m = np.ones((self.N, self.N), dtype = bool)
             np.fill_diagonal(m, self.self_interaction)
             object.__setattr__(self, "mask", m)
 
         else:
-            m = np.asarray(self.mask).astype(bool)
-            object.__setattr__(self, "mask", m)
+            object.__setattr__(self, "mask", np.asarray(self.mask).astype(bool))
 
-        
-        # Induction development time to match standard development time when not set
-        if self.r_T is None:
+
+
+
+    def _rebuild_r_T(self):
+
+        if self._auto_r_T:
             object.__setattr__(self, "r_T", self.T)
 
 
+
+
+    def __setattr__(self, name, value):
+        object.__setattr__(self, name, value)
+
+        # Nothing to keep in step until __post_init__ has run.
+        if not hasattr(self, "_auto_mask"):
+
+            return
+
+
+        # An explicitly assigned mask or r_T stops being auto-derived.
+        if name == "mask":
+            object.__setattr__(self, "_auto_mask", value is None)
+            self._rebuild_mask()
+
+        elif name == "r_T":
+            object.__setattr__(self, "_auto_r_T", value is None)
+            self._rebuild_r_T()
+
+        # Sources that derived values depend on.
+        elif name in ("N", "self_interaction"):
+            self._rebuild_mask()
+
+        elif name == "T":
+            self._rebuild_r_T()
+
+        elif name == "targets":
+            object.__setattr__(self, "targets",
+                               np.atleast_2d(np.asarray(value, dtype = float)))
+
+
+
+
+    """!---- Mutation helpers ----!"""
+    def set(self, **kwargs) -> "Config":
+
+        for k, v in kwargs.items():
+
+            if k not in self.__dataclass_fields__:
+                raise AttributeError(f"Config has no field '{k}'")
+
+            setattr(self, k, v)
+
+
+        return self
+
+
+
+
+    def copy(self, **kwargs) -> "Config":
+        """An independent copy, optionally with fields overridden."""
+
+        return replace(self, **kwargs)
 
 
 
@@ -207,3 +264,13 @@ class Config:
 def with_mask(cfg: Config, mask: np.ndarray) -> Config:
 
     return replace(cfg, mask = mask)
+
+
+
+
+def set_mask(cfg: Config, mask: np.ndarray) -> Config:
+    """Set the mask IN PLACE and return cfg."""
+    cfg.mask = mask
+
+
+    return cfg

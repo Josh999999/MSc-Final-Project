@@ -1,239 +1,88 @@
 """External Imports (Libraries and APIs)"""
-from dataclasses import replace
-import os  
-import numpy as np
+import os
  
  
 """Local Imports"""
-from Config import Config, make_rng, with_mask, ENERGY_GATES
+from Config import Config, make_rng, ENERGY_GATES
 from Data import S1
-from Interactions import (appropriate_interactions, noisy_appropriate_interactions,
-                          random_interactions, modular_interactions,
-                          modular_appropriate_interactions)
-from GRN import sparse_topology, diag_mask
-from Plastic_Induction import plastic_search_return_wrapper
-from GRN import handle_develop
-from Plotting import create_search_table
- 
- 
- 
-
+from Tenets import plastic_measure_surface
+from Plotting import plot_measure_surfaces
 
  
  
  
+# Where this experiment writes its figures.  Kept out of Config: it is a
+# property of the SCRIPT, not of the model being configured.
+FIGURES_OUTPUT = "Experiment3"
+
+
+
+
 if __name__ == "__main__":
  
-    # One config, constructed and validated up front. No ordering hazard:
-    # targets, N and the mask are checked against each other in __post_init__.
-    base = Config(
+    # What the plastic search reports, and how each should be coloured.
+    #   diverging : signed quantity, centred on zero
+    #   sequential: non-negative quantity
+    MEASURES = (
+        # diverging only where the measure is genuinely SIGNED; a zero-centred
+        # scale on a non-negative measure wastes half the colormap.
+        ("auc",             "Plastic AUC (mean fitness over the search)", "sequential"),
+        ("F_change",        "Fitness change over the search",             "diverging"),
+        ("acceptance_rate", "Acceptance rate",                            "sequential"),
+        ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
+        ("avg_accept_A",    "Mean alignment of accepted phenotypes",      "diverging"),
+    )
+ 
+    cfg = Config(
         N = len(S1),
         targets = S1,
         induction = True,
+        induction_process = "plastic",
+        T = 10,
         normalise_interactions = True,
-        figures_output = "Experiment3"
+        normalise_energy = False,
+        energy_type = "differential",
+        M = 100,
+        fitness_type = "standard",
+        mutation_type = "phenotype"
     )
  
-    COLUMN_TITLES = (
-        "Magnitude\n(Y)",
-        "Energy\ngate",
-        "Acceptance\nrate",
-        "AUC",
-        "F\nchange",
-        "Align\nchange",
-        "Accepted\navg. align",
-        "Accepted\nstd. align",
-    )
- 
-    # Generate the starting profile (Constant used for all interaction matricies)
-    G = make_rng(base.seed).uniform(low = -1, high = 1, size = base.N)
-    
+    os.makedirs(FIGURES_OUTPUT, exist_ok = True)
  
  
+    # One figure per (gate, measure): panels across the magnitude sweep, each
+    # panel a heatmap over Tenet 1 (x) by Tenet 2 (y).
+    for gate in ENERGY_GATES:
  
-    """Test the Plastic search for a range of different initialised interaction matricies"""
+        for key, label, scale in MEASURES:
  
-    # Replicable functionality for running the experiment
-    def _experiment3(base: Config, n_seeds: int = 8):
- 
-        # Save the search data
-        search_data = []
- 
- 
-        # Run the Plastic search for a sweep of magnitudes and energy gate protocols
-        for Y in [0.5, 1.0, 2.0, 6.0]:
-            BY = B * Y
-            
-            # Develop the Phenotype as the base for the plastic search
-            P = handle_develop(G, BY, base, induction = False)
- 
-            cfg = replace(base, Y = Y)
+            surfaces = []
  
  
-            for gate in ENERGY_GATES:
+            for Y in [0.5, 1.0, 2.0, 6.0]:
+                cfg = cfg.set(Y = Y, energy_gate = gate)
  
-                # Generates three new rows in the table for each magntiude Y
-                row_data = [Y, gate]
-                row_measurements = np.asarray([0] * (len(COLUMN_TITLES) - 2), dtype = float)
-
-                # Reset the Energy gate
-                cfg = replace(cfg, energy_gate = gate)
-
-
-                for i in range(0, n_seeds):
+                # Same stream per panel so the panels are comparable.
+                result = plastic_measure_surface(
+                    cfg, make_rng(cfg.seed),
+                    measure = key, n_seeds = 8, grid = 15
+                )
+                surfaces.append(result)
  
-                    # Perform the plastic search - This search doesn't alter B
-                    # Fresh stream per gate, so the gates are compared on identical draws.
-                    history = plastic_search_return_wrapper(B = BY, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = False)    
-    
-                    # Save the search data for the current row
-                    data = []
-                    data.append(history['acceptance_rate']) # Convert to a percentage in a string
-                    data.append(history["auc"])
-                    data.append(history["F_change"])
-                    data.append(history["align_change"])
-                    data.append(history["avg_accept_A"])
-                    data.append(history["std_accept_A"])
-
-                    row_measurements += np.asarray(data, dtype = float)
-
-
-                # Handle Inserting the measurements into the row as data
-
-                # Take the mean of measurements accumulated across seeds
-                row_measurements = row_measurements / n_seeds
-
-                # Configure the acceptance rate for percentage display
-                acceptance_rate = row_measurements[0]
-                row_measurements = list(row_measurements)
-                row_measurements[0] = f"{acceptance_rate * 100:.1f}%"
-
-                row_data = row_data + row_measurements
-
+  
+            OUTPUT = os.path.join(FIGURES_OUTPUT,
+                                  f"tenet_{gate}_{key}.png")
  
-                # Collect the row data
-                search_data.append(row_data) 
+            plot_measure_surfaces(
+                surfaces,
+                saveloc = OUTPUT,
+                label_measure = label,
+                scale = scale,
+                subtitle = f"energy gate: {gate}",
+                colour_scale = "symlog"
+            )
  
- 
-        # Display the results of the experiment and analysis in a table
-        create_search_table(
-            column_tites = COLUMN_TITLES, 
-            row_results = search_data, 
-            save_loc = OUTPUT, 
-            title = f"Effect of energy gates in the plastic search under {interaction_type}"
-        )
- 
- 
- 
- 
-    # !-- Sweep the interaction builders --!
-    #
-    # The builder controls how well B already encodes the target, i.e. Tenet 1.
-    # Appropriate interactions make development converge onto the target, so the
-    # search starts at F = 1 and has no headroom; the noisy and random builders
-    # leave room for the gates to differ.
- 
-    # Each builder returns (B, cfg).  Most keep the default dense mask, but the
-    # sparse case must change the CONFIG as well, because the mask governs which
-    # entries the search, the energy and the alignment measure all look at.
- 
-    def _dense(build):
-        """Builder that keeps the default (dense) mask."""
- 
-        def wrapped(cfg, rng):
-            cfg = with_mask(cfg, diag_mask(cfg))
-
- 
-            return build(cfg, rng), cfg
- 
- 
-        return wrapped
- 
- 
- 
- 
-    def _sparse(build):
-        """
-        Builder on a SPARSE topology.  sparse_topology returns a mask, not a
-        matrix, and the mask governs which entries the search, the energy and
-        the alignment measure all look at -- so the CONFIG has to change too,
-        not just B.
-        """
- 
-        def wrapped(cfg, rng):
-            mask = sparse_topology(cfg, rng)
-            sparse_cfg = with_mask(cfg, mask)
- 
- 
-            return build(sparse_cfg, rng), sparse_cfg
- 
- 
-        return wrapped
- 
- 
- 
- 
-    # Appropriate / inappropriate crossed with dense, modular and sparse
-    # topologies: the topology sets the structure, the appropriateness sets
-    # whether B points toward the target or away from it.
-    BUILDERS = (
-        ("appropriate interactions",
-            _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                             inappropriate = False,
-                                                             normalise = cfg.normalise_interactions))),
-        ("inappropriate interactions",
-            _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                             inappropriate = True,
-                                                             normalise = cfg.normalise_interactions))),
-        ("noisy appropriate interactions",
-            _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                   inappropriate = False,
-                                                                   normalise = cfg.normalise_interactions))),
-        ("noisy inappropriate interactions",
-            _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                   inappropriate = True,
-                                                                   normalise = cfg.normalise_interactions))),
-        ("random interactions",
-            _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
-                                                        normalise = cfg.normalise_interactions))),
- 
-        ("modular random interactions",
-            _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng,
-                                                         normalise = cfg.normalise_interactions))),
-        ("modular appropriate interactions",
-            _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                     inappropriate = False,
-                                                                     normalise = cfg.normalise_interactions))),
-        ("modular inappropriate interactions",
-            _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                     inappropriate = True,
-                                                                     normalise = cfg.normalise_interactions))),
- 
-        ("sparse random interactions",
-            _sparse(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
-                                                         normalise = cfg.normalise_interactions))),
-        ("sparse appropriate interactions",
-            _sparse(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                              inappropriate = False,
-                                                              normalise = cfg.normalise_interactions))),
-        ("sparse inappropriate interactions",
-            _sparse(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                              inappropriate = True,
-                                                              normalise = cfg.normalise_interactions))),
-    )
- 
-    os.makedirs(base.figures_output or ".", exist_ok = True)
- 
- 
-    for interaction_type, build in BUILDERS:
- 
-        # Same seed for every builder so the comparison is like for like.
-        B, run_cfg = build(base, make_rng(base.seed))
- 
-        OUTPUT = os.path.join(base.figures_output or ".",
-                              f"plastic_search_table_{interaction_type.replace(' ', '_')}.png")
- 
-        print(f"running: {interaction_type}")
-        _experiment3(run_cfg)
-        print(f"  wrote {OUTPUT}")
+            span = [f"{s['Z'].min():+.4f}..{s['Z'].max():+.4f}" for s in surfaces]
+            print(f"{gate:>6} | {key:<16} ranges per Y: {'  '.join(span)}")
+            print(f"         wrote {OUTPUT}")
  

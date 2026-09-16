@@ -3,14 +3,22 @@ import numpy as np
 
 
 """Local Imports"""
-from Config import Config, DEVELOPMENT_SIGMOIDS
+from Config import Config
 
+
+
+
+# Single definition of the working precision.  Every array the model computes
+# with is built at this dtype so no stage silently downcasts another; mixing
+# float32 and float64 costs ~9 significant digits and makes results depend on
+# which function last touched the array.
+DTYPE = np.float64
 
 
 
 def _cos(a: np.ndarray, b: np.ndarray, norm: bool = False) -> float:
-    a = np.asarray(a).ravel()
-    b = np.asarray(b).ravel()  
+    a = np.asarray(a, dtype = DTYPE).ravel()
+    b = np.asarray(b, dtype = DTYPE).ravel()  
     norm_a, norm_b = np.linalg.norm(a), np.linalg.norm(b)
 
 
@@ -24,7 +32,6 @@ def _cos(a: np.ndarray, b: np.ndarray, norm: bool = False) -> float:
 
     if norm:
         F = (F + 1) / 2
-    
 
 
     return F
@@ -34,14 +41,12 @@ def _cos(a: np.ndarray, b: np.ndarray, norm: bool = False) -> float:
 
 def tanh_sigma(x: np.ndarray) -> np.ndarray:
 
-
     return np.tanh(x)
 
 
 
 
 def linear_sigma(x: np.ndarray) -> np.ndarray:
-
 
     return x
 
@@ -50,15 +55,12 @@ def linear_sigma(x: np.ndarray) -> np.ndarray:
 
 def sigmoid_sigma(x):
 
-
     return 1.0 / (1.0 + np.exp(-np.clip(x, -700, 700)))
 
 
 
 
-_SIGMOIDS = {"tanh": tanh_sigma, "linear": linear_sigma}
-assert set(_SIGMOIDS) == set(DEVELOPMENT_SIGMOIDS)
-
+SIGMOIDS = {"tanh": tanh_sigma, "linear": linear_sigma}
 
 def resolve_sigmoid(sigmoid):
 
@@ -68,7 +70,7 @@ def resolve_sigmoid(sigmoid):
         return sigmoid
 
 
-    return _SIGMOIDS[str(sigmoid).strip().lower()]
+    return SIGMOIDS[str(sigmoid).strip().lower()]
 
 
 
@@ -113,7 +115,13 @@ def sparse_topology(cfg: Config, rng: np.random.Generator) -> np.ndarray:
 
 def masked_matrix(B: np.ndarray, mask: np.ndarray, inplace: bool = True) -> np.ndarray:
     mask = np.asarray(mask).astype(bool)
-    B = np.asarray(B, dtype = float) if inplace else np.asarray(B, dtype = float).copy()
+
+
+    if B is None:
+        B = np.zeros(mask.shape, dtype = DTYPE)
+
+    else:
+        B = np.asarray(B, dtype = DTYPE) if inplace else np.asarray(B, dtype = DTYPE).copy()
 
 
     return np.where(mask, B, 0.0)
@@ -124,7 +132,7 @@ def masked_matrix(B: np.ndarray, mask: np.ndarray, inplace: bool = True) -> np.n
 def develop(G: np.ndarray, B: np.ndarray, cfg: Config, T: int) -> np.ndarray:
     sigmoid = resolve_sigmoid(cfg.sigmoid)
 
-    P = np.asarray(G, dtype = float).copy()
+    P = np.asarray(G, dtype = DTYPE).copy()
 
 
     for _ in range(T):
@@ -158,7 +166,7 @@ def fitness(P: np.ndarray, S: np.ndarray, limit: bool = False, norm: bool = Fals
 
     if norm:
         N = len(S)
-        F = (F + N) / 2 * N
+        F = (F + N) / (2 * N)
 
 
     return F
@@ -182,16 +190,8 @@ def evaluate_fitness(P: np.ndarray, S: np.ndarray, cfg: Config) -> float:
 
 
 
-def random_profiles(n: int, cfg: Config, rng: np.random.Generator) -> np.ndarray:
-
-
-    return rng.uniform(low = -1.0, high = 1.0, size = (n, cfg.N))
-
-
-
-
 def mutate_profile(G: np.ndarray, cfg: Config, rng: np.random.Generator) -> np.ndarray:
-    G_mut = np.asarray(G, dtype = float).copy()
+    G_mut = np.asarray(G, dtype = DTYPE).copy()
 
     idx = rng.integers(low = 0, high = cfg.N, size = cfg.n_mut_G)
     h = G_mut[idx] + rng.uniform(low = -cfg.u1, high = cfg.u1, size = cfg.n_mut_G)
@@ -203,64 +203,38 @@ def mutate_profile(G: np.ndarray, cfg: Config, rng: np.random.Generator) -> np.n
 
 
 
-def mutate_interactions(B: np.ndarray, cfg: Config, rng: np.random.Generator) -> np.ndarray:
-    B_mut = np.asarray(B, dtype = float).copy()
+def random_profiles(n: int, cfg: Config, rng: np.random.Generator) -> np.ndarray:
 
-
-    if rng.random() >= cfg.prob_mut_B:
-
-        return B_mut
-
-
-    allowed = cfg.allowed()
-
-
-    if allowed.size <= 0:
-
-        return B_mut
-
-
-    flat = allowed[rng.integers(0, allowed.size, size = cfg.n_mut_B)]
-    rows, cols = np.unravel_index(flat, (cfg.N, cfg.N))
-    deltas = rng.uniform(low = -cfg.u2, high = cfg.u2, size = cfg.n_mut_B)
-
-
-    for i, j, d in zip(rows, cols, deltas):
-        B_mut[i, j] += d
-
-
-        if cfg.symmetric_B and i != j:
-            B_mut[j, i] += d
-
-
-    return B_mut
+    return rng.uniform(low = -1.0, high = 1.0, size = (n, cfg.N)).astype(DTYPE, copy = False)
 
 
 
 
 def hebbian_interactions(cfg: Config, S: np.ndarray = None) -> np.ndarray:
     S = cfg.targets if S is None else S
-    S = np.atleast_2d(np.asarray(S, dtype = float))
+    S = np.atleast_2d(np.asarray(S, dtype = DTYPE))
 
     H = cfg.lr * (S.T @ S)
-
-    # No self-interaction in development or in the energy calculation, so the
-    # Hebbian matrix must match or it is not comparable to an evolved B.
-    np.fill_diagonal(H, 0.0)
     H = masked_matrix(H, cfg.mask)
 
-    Y = abs(cfg.Y)
 
-
-    return H / Y if Y > 0 else H
+    return H / cfg.Y if cfg.Y > 0 else H
 
 
 
 
 def hamming_dist(a: np.ndarray, b: np.ndarray) -> int:
 
-
-    return int(np.sum(np.sign(np.asarray(a).ravel()) != np.sign(np.asarray(b).ravel())))
-
+    return int(np.sum(np.sign(np.asarray(a, dtype = DTYPE).ravel()) != np.sign(np.asarray(b, dtype = DTYPE).ravel())))
 
 
+
+
+def create_mask(cfg: Config, rng: np.random.Generator) -> np.ndarray:
+
+    if cfg.sparse_interactions:
+
+        return sparse_topology(cfg, rng)
+
+
+    return diag_mask(cfg)

@@ -8,61 +8,87 @@ import matplotlib.colors as mcolors
  
  
  
-def plot_fitness_surface(surfaces: list, saveloc: str = "tenet_surface.png", label_measure: str = "Fitness"):
+def plot_fitness_surface(
+        surfaces: list,
+        saveloc: str = "tenet_surface.png",
+        label_measure: str = "Fitness",
+        scale: str = "sequential",
+        vmin: float = None,
+        vmax: float = None,
+        n_seeds: int = None
+    ):
+    """
+    Panels of one measure over the two-tenet space, one panel per magnitude.
+
+    The colour range is taken from the DATA unless vmin/vmax are given.  It
+    used to be hard-coded to [0, 1], which silently clipped every signed
+    measure (energy and diff_energy run negative) to the bottom colour.
+    """
     n = len(surfaces)
+    allZ = np.concatenate([np.asarray(s["Z"]).ravel() for s in surfaces])
+
+    diverging = (scale == "diverging")
+    cmap = "coolwarm" if diverging else "viridis"
+
+    lo, hi = float(np.nanmin(allZ)), float(np.nanmax(allZ))
+
+
+    if vmin is None or vmax is None:
+
+        if diverging:
+            m = max(abs(lo), abs(hi)) or 1.0
+            auto_min, auto_max = -m, m
+
+        else:
+            auto_min, auto_max = lo, (hi if hi != lo else lo + 1e-12)
+
+        vmin = auto_min if vmin is None else vmin
+        vmax = auto_max if vmax is None else vmax
+
+
     fig, axes = plt.subplots(1, n, figsize = (3.6 * n, 3.9), squeeze = False)
- 
- 
+
+
     for ax, s in zip(axes[0], surfaces):
         a1, a2 = s["a1_grid"], s["a2_grid"]
- 
+
         im = ax.imshow(
-            s["Z"], origin = "lower", cmap = "RdBu_r", vmin = 0, vmax = 1,
+            s["Z"], origin = "lower", cmap = cmap, vmin = vmin, vmax = vmax,
             extent = [a1[0], a1[-1], a2[0], a2[-1]], aspect = "auto"
         )
         ax.axhline(0, color = "k", lw = 0.5, alpha = 0.4)
         ax.axvline(0, color = "k", lw = 0.5, alpha = 0.4)
- 
+
         ax.set_title(f"magnitude $Y$ = {s['Y']:g}", fontsize = 10)
         ax.set_xlabel("Tenet 1:  cos(B, $SS^T$)")
- 
- 
+
+
         if ax is axes[0][0]:
             ax.set_ylabel("Tenet 2:  cos(G, S)")
- 
+
         else:
             ax.set_yticklabels([])
- 
- 
-    fig.colorbar(im, ax = axes[0].tolist(), fraction = 0.025, pad = 0.02, label = label_measure)
-    fig.suptitle(f"{label_measure} over the two-tenet space (Number of seeds: {n})", fontsize = 11)
+
+
+    fig.colorbar(im, ax = axes[0].tolist(), fraction = 0.025, pad = 0.02,
+                 label = label_measure)
+
+    # n is the number of PANELS (one per magnitude), not the seed count, so the
+    # seed count has to be passed in if it is to be reported.
+    title = f"{label_measure} over the two-tenet space"
+
+
+    if n_seeds is not None:
+        title = f"{title}  (seeds per cell: {n_seeds})"
+
+
+    fig.suptitle(title, fontsize = 11)
     fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
- 
- 
- 
- 
-def plot_interaction_trajectories(result: dict, saveloc: str, title: str = None):
-    fig, ax = plt.subplots(figsize = (6, 4))
- 
-    gens = np.asarray(result["recorded_gens"])
- 
- 
-    for trajectory in result["trajectories"]:
-        ax.plot(gens, trajectory, lw = 0.8)
- 
- 
-    ax.set_title(title)
-    ax.set_xlabel("Generations")
-    ax.set_ylabel("Regulation coefficient")
- 
-    fig.tight_layout()
-    fig.savefig(saveloc, dpi = 150)
-    plt.close(fig)
- 
- 
- 
- 
+
+
+
+
 def plot_measure_surfaces(
         surfaces: list,
         saveloc: str = "tenet_measure.png",
@@ -195,7 +221,13 @@ def plot_measure_surfaces(
  
  
  
-def _fmt(v, sig: int = 4, lo: float = 1e-6, hi: float = 1e7):
+def _fmt(v, sig: int = 6, lo: float = 1e-9, hi: float = 1e9):
+    """
+    Table-cell formatting.  `sig` SIGNIFICANT digits are kept (not decimal
+    places), and the plain-decimal band is wide so small values are not forced
+    into exponent form.  Display rounding only -- the stored values are full
+    float64 either way.
+    """
  
     if isinstance(v, str):
  
@@ -232,7 +264,7 @@ def _fmt(v, sig: int = 4, lo: float = 1e-6, hi: float = 1e7):
  
  
  
-def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_loc: str, title: str): 
+def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_loc: str, title: str, sig: int = 6): 
     n_rows = len(row_results)
     n_cols = len(column_tites)
  
@@ -240,7 +272,7 @@ def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_
     fig, ax = plt.subplots(figsize = (2.05 * n_cols, 0.62 * n_rows + 1.6))
  
     tbl = ax.table(
-        cellText = [[_fmt(v) for v in r] for r in row_results],
+        cellText = [[_fmt(v, sig = sig) for v in r] for r in row_results],
         colLabels = column_tites,
         loc = "center",
         cellLoc = "center"
@@ -298,4 +330,25 @@ def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_
  
  
     fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
+    plt.close(fig)
+
+
+
+
+def plot_interaction_trajectories(result: dict, saveloc: str, title: str = None):
+    fig, ax = plt.subplots(figsize = (6, 4))
+ 
+    gens = np.asarray(result["recorded_gens"])
+ 
+ 
+    for trajectory in result["trajectories"]:
+        ax.plot(gens, trajectory, lw = 0.8)
+ 
+ 
+    ax.set_title(title)
+    ax.set_xlabel("Generations")
+    ax.set_ylabel("Regulation coefficient")
+ 
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi = 150)
     plt.close(fig)
