@@ -1,20 +1,27 @@
 """External Imports (Libraries and APIs)"""
 import numpy as np
+import time
 
 
 """Local Imports"""
 from Config import Config
 from Induction import handle_induction
-from GRN import DTYPE, masked_matrix, handle_develop, evaluate_fitness, mutate_profile, _cos
+from GRN import DTYPE, masked_matrix, handle_develop, evaluate_fitness, mutate_profile, fitness, _cos
+from Analysis import check_convergence
+from Tenets import measure_tenet1, measure_tenet2
 
 
 
 
 def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> dict:
+
+    # Start code timing at the very start of the code for consistency
+    start_time = time.perf_counter()
+
+
     S = cfg.targets
     M = cfg.n_targets
 
-    B = np.asarray(B, dtype = DTYPE)
     B = masked_matrix(B, cfg.mask)
     B_flat = B.reshape(-1)                  # view: mutated in place
     B_ind = None
@@ -34,12 +41,12 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     # Recording the evolutionary process
     interaction_developments = []
     recorded_gens = []
-    fitness = []
+    fitnesses = []
     selections = []
     G_alignment = []
     B_alignment = []
     B_magnitude = []
-
+    converged = []
 
     # Recording the induction process
     native_fitness = []
@@ -47,7 +54,18 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     F_change_inner = []
     F_change_outer = []
     AUC_inner = []
-    AUC_outer = []
+    AUC_outer = []    
+
+    # Single value results
+    conv_first_gen = -1
+    conv_stick_gen = -1
+    conv_fgs = False
+    conv_final_gen = False
+    conv_first_time = -1
+    conv_stick_time = -1
+
+    final_fitness_uncapped = -1
+    final_fitness_capped = -1
 
 
 
@@ -55,41 +73,43 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     P = handle_develop(G, B, cfg, induction = False)
 
     F = 0
-    F_mut
+    F_mut = 0
 
 
 
     
     """ Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison """
-    def induction_history():    
+    def induction_history(history: dict) -> tuple[float, np.ndarray]:    
         F_mut = history["auc_inner"]
         B_ind = history["B"]
 
 
-        # Log the linear progression of fitness curve (Record the start and end curve)
+        # Log the linear progression of fitnesses curve (Record the start and end curve)
         if cfg.record:
             start_curve = history['curve'][0]
             end_curve = history['F']
             F_ci = history['F_change_inner']
             F_co = history['F_change_outer']
+            auc_inner = history['auc_inner']
+            auc_outer = history['auc_outer']
 
             native_fitness.append(start_curve)
             plastic_fitness.append(end_curve)
+            F_change_inner.append(F_ci)
+            F_change_outer.append(F_co)
+            AUC_inner.append(auc_inner)
+            AUC_outer.append(auc_outer)
+
+
+        return F_mut, B_ind
 
 
 
-    def induction_switch():
+    def induction_switch() -> float:
     
         if cfg.induction:
-            history = handle_induction(B, P, G, cfg, rng, S[ei])
-            F_mut = history["auc_inner"]
-            B_ind = history["B"]
-
-
-            # Log the linear progression of fitness curve
-            if cfg.record:
-                native_fitness.append(history['curve'][0])
-                plastic_fitness.append(history['curve'][-1])
+            history = handle_induction(B, P, G, cfg, rng, S[ei])       
+            F_mut, B_ind = induction_history(history)
 
         else:
             F_mut = evaluate_fitness(P, S[ei], cfg)
@@ -102,7 +122,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         
         # Record Fintess
         if cfg.record:
-            fitness.append(F_mut)
+            fitnesses.append(F_mut)
 
 
         return F_mut
@@ -164,8 +184,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
         # Record alignment of the mutations with the target
         if cfg.record:
-            G_A = _cos(G, S[ei], norm = True)
-            B_A = _cos(B, S[ei], norm = True)
+            G_A = measure_tenet2(G, cfg, S[ei])
+            B_A = measure_tenet1(B, cfg, S[ei])
             G_alignment.append(G_A)
             B_alignment.append(B_A)
 
@@ -178,18 +198,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         if cfg.induction:
 
             # Compute induction
-            history = handle_induction(B, P_mut, G, cfg, rng, S[ei])
-            F_mut = history["auc_inner"]
-            B_ind = history["B"]
-
-
-            # Log the linear progression of fitness curve (Record the start and end curve)
-            if cfg.record:
-                start_curve = history['curve'][0]
-                end_curve = history['F']
-
-                native_fitness.append(start_curve)
-                plastic_fitness.append(end_curve)
+            history = handle_induction(B, P_mut, G, cfg, rng, S[ei])            
+            F_mut, B_ind = induction_history(history)
 
         else:
             F_mut = evaluate_fitness(P_mut, S[ei], cfg)
@@ -227,15 +237,59 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
             # Record weather the mutation was selected      
             if cfg.record:
-                selections.append(True)
+                selections.append(False)
+
+        else:
+
+            # Record weather the mutation was selected      
+            if cfg.record:
+                selections.append(False)
 
 
 
         
         # Subsampled recording of masked entries only
-        if cfg.record and (gen % cfg.record_every == 0):
-            interaction_developments.append(B_flat[allowed].copy())
-            recorded_gens.append(gen)
+        if cfg.record:
+
+            if (gen % cfg.record_every == 0):
+                interaction_developments.append(B_flat[allowed].copy())
+                recorded_gens.append(gen)
+
+
+            # Record the magnitude of the current interaction matrix
+            Y = np.linalg.norm(B, ord = "fro")
+            B_magnitude.append(Y)
+
+            # Check if the model has converged
+            is_converged = check_convergence(F, cfg, l = 0.2)
+            converged.append(is_converged)
+
+            # Record the fitness
+            fitnesses.append(F)
+
+
+
+
+            # !-- Single Value Calculations -- !
+
+            # Record convergence results
+            if is_converged and conv_first_gen == -1:
+                conv_first_gen = gen
+                conv_stick_gen = gen
+
+                end_time = time.perf_counter()
+                conv_first_time = end_time - start_time
+
+            elif is_converged and conv_stick_gen == -1:
+                conv_stick_gen = gen
+
+                end_time = time.perf_counter()
+                conv_stick_time = end_time - start_time
+
+            elif not is_converged:
+                conv_stick_gen = -1
+                conv_stick_time = -1
+
 
 
 
@@ -248,54 +302,62 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         else:
             trajectories = np.empty((n_allowed, 0))
             gens = np.array([], dtype = int)
+        
+
+        # Final analysis of the convergence
+        if conv_first_gen == conv_stick_gen:
+            conv_fgs = True
 
 
-        # Record the magnitude of the current interaction matrix
-        Y = np.linalg.norm(B, ord = "fro")
-        B_magnitude.append(Y)
+        if conv_stick_time > 0:
+            conv_final_gen = True
 
 
-
-
-    return {
-        "G": G,
-        "B": B,
-        "P": P,
-        "F": F,
-        "target_index": ei,
-        "trajectories": trajectories,
-        "recorded_gens": gens,
-        "config": cfg,
-        "native_fitness": native_fitness,
-        "plastic_fitness": plastic_fitness
-    }
+        # Final analysis of the fitness
+        final_fitness_uncapped = fitness(P, S[ei], limit = False, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S, norm = cfg.normalise_fitness)
+        final_fitness_capped = fitness(P, S[ei], limit = True, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S, norm = cfg.normalise_fitness)
 
 
 
 
-def sswm_evolve_return_wrapper(cfg: Config, rng: np.random.Generator, B: np.ndarray = None, limit_return: bool = False) -> dict:
-
-    B, P, F, inner_curve, outer_curve, align_curve = sswm_evolve(cfg, rng, B)
 
 
-    if limit_return:
-    
+    if not cfg.record:
+        
         return {
             "B": B,
-            "auc_inner": np.mean(inner_curve) if inner_curve.size else 0.0,
+            "G": G,
+            "P": P,
+            "F": F,
         }
 
 
     return {
         "B": B,
+        "G": G,
         "P": P,
         "F": F,
-        "F_change_inner": inner_curve[-1] - inner_curve[0],
-        "F_change_outer": outer_curve[-1] - outer_curve[0],        
-        "auc_inner": np.mean(inner_curve) if inner_curve.size else 0.0,                 # area under the ABSOLUTE curve
-        "auc_outer": np.mean(outer_curve) if outer_curve.size else 0.0,
-        "inner_curve": inner_curve,
-        "outer_curve": outer_curve,
-        "align_curve": align_curve,
-        "align_change": align_curve[-1] - align_curve[0],
+        "target_index": ei,
+        "trajectories": trajectories,
+        "recorded_gens": gens,
+        "fitnesses": fitnesses,
+        "selections": selections,
+        "G_alignment": G_alignment,
+        "B_alignment": B_alignment,
+        "B_magnitude": B_magnitude,
+        "converged": converged, 
+        "native_fitness": native_fitness,
+        "plastic_fitness": plastic_fitness,
+        "F_change_inner": F_change_inner,
+        "F_change_outer": F_change_outer,
+        "AUC_inner": AUC_inner,
+        "AUC_outer": AUC_outer,
+        "conv_first_gen": conv_first_gen,
+        "conv_stick_gen": conv_stick_gen,
+        "conv_fgs": conv_fgs,
+        "conv_final_gen": conv_final_gen,
+        "conv_first_time": conv_first_time,
+        "conv_stick_time": conv_stick_time,
+        "final_fitness_uncapped": final_fitness_uncapped,
+        "final_fitness_capped": final_fitness_capped
     }

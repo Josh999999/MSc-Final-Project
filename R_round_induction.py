@@ -93,16 +93,7 @@ def r_round_induction(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, 
 
 
 
-def r_round_induction_return_wrapper(
-        B: np.ndarray,
-        P: np.ndarray,
-        G: np.ndarray,
-        cfg: Config,
-        rng: np.random.Generator,
-        S: np.ndarray = None,
-        limit_return: bool = False
-    ) -> dict:
-
+def r_round_induction_return_wrapper(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, rng: np.random.Generator, S: np.ndarray = None, limit_return: bool = False) -> dict:
     B, P, F, inner_curve, outer_curve, align_curve = r_round_induction(B, P, G, cfg, rng, S)
 
 
@@ -118,8 +109,8 @@ def r_round_induction_return_wrapper(
         "B": B,
         "P": P,
         "F": F,
-        "F_change_inner": inner_curve[-1] - F,
-        "F_change_outer": outer_curve[-1] - F,        
+        "F_change_inner": inner_curve[-1] - inner_curve[0],
+        "F_change_outer": outer_curve[-1] - inner_curve[0],        
         "auc_inner": np.mean(inner_curve) if inner_curve.size else 0.0,                 # area under the ABSOLUTE curve
         "auc_outer": np.mean(outer_curve) if outer_curve.size else 0.0,
         "inner_curve": inner_curve,
