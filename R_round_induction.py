@@ -11,15 +11,27 @@ from Interactions import normalise_interactions
 
 
 
-def r_round_induction(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, rng: np.random.Generator, S: np.ndarray = None) -> np.ndarray:    
+def r_round_induction(
+        B: np.ndarray, 
+        P: np.ndarray, 
+        G: np.ndarray, 
+        cfg: Config, 
+        rng: np.random.Generator, 
+        S: np.ndarray = None, 
+        AUC: float = -1
+    ) -> np.ndarray:    
     B = np.asarray(B, dtype = DTYPE).copy()
     S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
     P = np.asarray(P, dtype = DTYPE)
     
     F = evaluate_fitness(P, S, cfg)
     A = phenotype_alignment(P, B, cfg) 
+
+    if AUC == -1:
+        search = plastic_search_return_wrapper(B, P, cfg, rng, S, limit_return = True)
+        AUC = search['auc']
     
-    inner_curve = []
+    inner_curve = [AUC]
     outer_curve = [F]
     align_curve = [A]
     
@@ -93,7 +105,16 @@ def r_round_induction(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, 
 
 
 
-def r_round_induction_return_wrapper(B: np.ndarray, P: np.ndarray, G: np.ndarray, cfg: Config, rng: np.random.Generator, S: np.ndarray = None, limit_return: bool = False) -> dict:
+def r_round_induction_return_wrapper(
+        B: np.ndarray, 
+        P: np.ndarray, 
+        G: np.ndarray, 
+        cfg: Config, 
+        rng: np.random.Generator, 
+        S: np.ndarray = None, 
+        limit_return: bool = False, 
+        AUC: float = 0.0
+    ) -> dict:
     B, P, F, inner_curve, outer_curve, align_curve = r_round_induction(B, P, G, cfg, rng, S)
 
 
@@ -110,11 +131,15 @@ def r_round_induction_return_wrapper(B: np.ndarray, P: np.ndarray, G: np.ndarray
         "P": P,
         "F": F,
         "F_change_inner": inner_curve[-1] - inner_curve[0],
-        "F_change_outer": outer_curve[-1] - inner_curve[0],        
+        "F_change_outer": outer_curve[-1] - outer_curve[0],        
         "auc_inner": np.mean(inner_curve) if inner_curve.size else 0.0,                 # area under the ABSOLUTE curve
         "auc_outer": np.mean(outer_curve) if outer_curve.size else 0.0,
         "inner_curve": inner_curve,
         "outer_curve": outer_curve,
         "align_curve": align_curve,
         "align_change": align_curve[-1] - align_curve[0],
+        "F_first_inner": inner_curve[0],
+        "F_final_inner": inner_curve[-1],
+        "F_first_outer": outer_curve[0],
+        "F_final_outer": outer_curve[-1],
     }

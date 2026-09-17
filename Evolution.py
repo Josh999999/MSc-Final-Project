@@ -53,6 +53,10 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     plastic_fitness = []
     F_change_inner = []
     F_change_outer = []
+    F_first_inner = []
+    F_final_inner = []
+    F_first_outer = []
+    F_final_outer = []
     AUC_inner = []
     AUC_outer = []    
 
@@ -92,6 +96,10 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             F_co = history['F_change_outer']
             auc_inner = history['auc_inner']
             auc_outer = history['auc_outer']
+            f_first_in = history['F_first_inner']
+            f_final_in = history['F_final_inner']
+            f_first_out = history['F_first_outer']
+            f_final_out = history['F_final_outer']
 
             native_fitness.append(start_curve)
             plastic_fitness.append(end_curve)
@@ -99,6 +107,10 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             F_change_outer.append(F_co)
             AUC_inner.append(auc_inner)
             AUC_outer.append(auc_outer)
+            F_first_inner.append(f_first_in)
+            F_final_inner.append(f_final_in)
+            F_first_outer.append(f_first_out)
+            F_final_outer.append(f_final_out)
 
 
         return F_mut, B_ind
@@ -108,7 +120,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     def induction_switch() -> float:
     
         if cfg.induction:
-            history = handle_induction(B, P, G, cfg, rng, S[ei])       
+            history = handle_induction(B, P, G, cfg, rng, S[ei], F)       
             F_mut, B_ind = induction_history(history)
 
         else:
@@ -198,7 +210,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         if cfg.induction:
 
             # Compute induction
-            history = handle_induction(B, P_mut, G, cfg, rng, S[ei])            
+            history = handle_induction(B, P_mut, G, cfg, rng, S[ei], F)            
             F_mut, B_ind = induction_history(history)
 
         else:
@@ -359,5 +371,9 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         "conv_first_time": conv_first_time,
         "conv_stick_time": conv_stick_time,
         "final_fitness_uncapped": final_fitness_uncapped,
-        "final_fitness_capped": final_fitness_capped
+        "final_fitness_capped": final_fitness_capped,        
+        "F_first_inner": F_first_inner,
+        "F_final_inner": F_final_inner,
+        "F_first_outer": F_first_outer,
+        "F_final_outer": F_final_outer,
     }

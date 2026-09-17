@@ -17,7 +17,8 @@ def handle_induction(
         cfg: Config,
         rng: np.random.Generator,
         S: np.ndarray = None,
-        limit_return: bool = False
+        limit_return: bool = False,
+        AUC: float = 0.0
     ) -> dict[any]:
 
     history = {}
@@ -30,7 +31,7 @@ def handle_induction(
 
     elif induction_process_ == "r-round":
 
-        history = r_round_induction_return_wrapper(B, P, G, cfg, rng, S, limit_return)
+        history = r_round_induction_return_wrapper(B, P, G, cfg, rng, S, limit_return, AUC)
 
     else:
         history = {
