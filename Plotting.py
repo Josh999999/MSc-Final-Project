@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from matplotlib.patches import Patch
  
  
  
@@ -17,13 +18,7 @@ def plot_fitness_surface(
         vmax: float = None,
         n_seeds: int = None
     ):
-    """
-    Panels of one measure over the two-tenet space, one panel per magnitude.
 
-    The colour range is taken from the DATA unless vmin/vmax are given.  It
-    used to be hard-coded to [0, 1], which silently clipped every signed
-    measure (energy and diff_energy run negative) to the bottom colour.
-    """
     n = len(surfaces)
     allZ = np.concatenate([np.asarray(s["Z"]).ravel() for s in surfaces])
 
@@ -222,12 +217,6 @@ def plot_measure_surfaces(
  
  
 def _fmt(v, sig: int = 6, lo: float = 1e-9, hi: float = 1e9):
-    """
-    Table-cell formatting.  `sig` SIGNIFICANT digits are kept (not decimal
-    places), and the plain-decimal band is wide so small values are not forced
-    into exponent form.  Display rounding only -- the stored values are full
-    float64 either way.
-    """
  
     if isinstance(v, str):
  
@@ -352,3 +341,361 @@ def plot_interaction_trajectories(result: dict, saveloc: str, title: str = None)
     fig.tight_layout()
     fig.savefig(saveloc, dpi = 150)
     plt.close(fig)
+
+
+
+
+def plot_trajectories(
+        trajectories: np.ndarray, 
+        keys: np.ndarray, 
+        linestyle: np.ndarray, 
+        marker: str, 
+        x_label = "x",
+        y_label = "y",
+        x_scale: str = "linear",
+        y_scale: str = "linear",
+        x_limits: tuple = None,
+        y_limits: tuple = None,
+        grid: bool = True,
+        title: str = None,        
+        subtitle: str = None,
+        saveloc: str = "./", 
+        marker_size: int = 1,
+        alpha: float = 1.0,
+        moving_average: bool = False,
+        smooth: int = 0,
+        band: np.ndarray = None,
+        bands: bool = True,
+        band_alpha: float = 0.18,         
+        dpi: int = 150
+    ):
+    
+    fig, ax = plt.subplots(figsize = (16, 10))
+    n = len(trajectories)
+
+    for trajectory, key, ls in zip(trajectories, keys, linestyle):
+
+        trajectory_plot = trajectory
+
+
+        if moving_average and not (smooth is None or smooth < 2 or trajectory_plot.size < smooth):
+    
+                # centred, edge-padded so the smoothed line keeps its length
+                pad = smooth // 2
+                padded = np.pad(trajectory_plot, (pad, smooth - 1 - pad), mode = "edge")
+        
+                trajectory_plot = np.convolve(padded, np.ones(smooth) / smooth, mode = "valid")
+
+        
+        xs = np.arange(trajectory_plot.size)
+
+        ax.plot(
+            xs,
+            trajectory_plot, 
+            label = key, 
+            lw = 1 + 0.1 * np.log(n), 
+            linestyle = ls, 
+            marker = marker,
+            marker_size = marker_size,
+            alpha = alpha
+        )
+
+
+        if bands and band is not None:
+ 
+            if isinstance(band, (tuple, list)) and len(band) == 2 and np.ndim(band[0]) > 0:
+                lower, upper = np.asarray(band[0], float), np.asarray(band[1], float)
+ 
+            else:
+                half = np.asarray(band, dtype = float)
+                lower, upper = trajectory - half, trajectory + half
+ 
+ 
+            ax.fill_between(xs, lower, upper, alpha = band_alpha, linewidth = 0)
+
+
+    ax.set_xscale(x_scale)
+    ax.set_yscale(y_scale)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+ 
+ 
+    if x_limits: 
+        ax.set_xlim(*x_limits)
+
+    if y_limits: 
+        ax.set_ylim(*y_limits)
+
+    if grid:     
+        ax.grid(alpha = 0.25, linewidth = 0.6)
+
+
+    ax.legend(frameon = False, fontsize = 9)
+
+
+    full_title = title or ""
+ 
+    if subtitle:
+        full_title = f"{full_title}\n{subtitle}" if full_title else subtitle
+ 
+ 
+    if full_title:
+        ax.set_title(full_title, fontsize = 11)
+ 
+ 
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    plt.close(fig)
+
+
+
+
+def plot_binary_strip(
+        values,
+        saveloc: str = "strip.png",
+        x = None,
+        ax = None,
+        true_colour: str = "#2c7fb8",
+        false_colour: str = "#f0f0f0",
+        true_label: str = "True",
+        false_label: str = "False",
+        height: float = 1.0,
+        y_base: float = 0.0,
+        title: str = None,
+        subtitle: str = None,
+        x_label: str = "",
+        strip_label: str = "",
+        alpha: float = 1.0,
+        edge: bool = False,
+        legend: bool = True,
+        legend_loc: str = "upper right",
+        figsize: tuple = (9.0, 1.9),
+        dpi: int = 150
+    ):
+ 
+    v = np.asarray(values)
+ 
+    if v.ndim != 1:
+        raise ValueError(f"values must be 1-D, got shape {v.shape}")
+ 
+    v = v.astype(bool)
+    n = v.size
+ 
+ 
+    if n == 0:
+        raise ValueError("values is empty")
+ 
+ 
+    # ---- cell boundaries -------------------------------------------------
+    if x is None:
+        edges = np.arange(n + 1, dtype = float)
+ 
+    else:
+        xs = np.asarray(x, dtype = float)
+ 
+        if xs.size == n + 1:
+            edges = xs
+ 
+        elif xs.size == n:
+            # infer a trailing edge from the final spacing
+            step = (xs[-1] - xs[-2]) if n > 1 else 1.0
+            edges = np.concatenate([xs, [xs[-1] + step]])
+ 
+        else:
+            raise ValueError(f"x must have {n} or {n + 1} entries, got {xs.size}")
+ 
+ 
+    # ---- run-length encode so each run is one rectangle ------------------
+    change = np.flatnonzero(np.diff(v)) + 1
+    starts = np.concatenate([[0], change])
+    ends = np.concatenate([change, [n]])
+ 
+    own_fig = ax is None
+ 
+ 
+    if own_fig:
+        fig, ax = plt.subplots(figsize = figsize)
+ 
+    else:
+        fig = ax.figure
+ 
+ 
+    for a, b in zip(starts, ends):
+        colour = true_colour if v[a] else false_colour
+ 
+        ax.broken_barh(
+            [(edges[a], edges[b] - edges[a])],
+            (y_base, height),
+            facecolors = colour,
+            alpha = alpha,
+            edgecolor = "white" if edge else "none",
+            linewidth = 0.4 if edge else 0.0
+        )
+ 
+ 
+    ax.set_xlim(edges[0], edges[-1])
+ 
+ 
+    if own_fig:
+        ax.set_ylim(y_base, y_base + height)
+        ax.set_yticks([])
+        ax.set_xlabel(x_label)
+ 
+ 
+        if strip_label:
+            ax.set_ylabel(strip_label, rotation = 0, ha = "right", va = "center")
+ 
+ 
+        if legend:
+            ax.legend(handles = [Patch(facecolor = true_colour, label = true_label),
+                                 Patch(facecolor = false_colour, label = false_label)],
+                      loc = legend_loc, frameon = False, fontsize = 9, ncols = 2)
+ 
+ 
+        full = title or ""
+ 
+        if subtitle:
+            full = f"{full}\n{subtitle}" if full else subtitle
+ 
+ 
+        if full:
+            ax.set_title(full, fontsize = 11)
+ 
+ 
+        fig.tight_layout()
+        fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+        plt.close(fig)
+ 
+ 
+        return None
+ 
+ 
+    return ax
+
+ 
+ 
+ 
+def plot_binary_bar(
+        values,
+        saveloc: str = "binary_bar.png",
+        x = None,
+        true_colour: str = "#2b7bba",
+        false_colour: str = "#d9d9d9",
+        true_label: str = "True",
+        false_label: str = "False",
+        height: float = 1.0,
+        y_base: float = 0.0,
+        title: str = None,
+        subtitle: str = None,
+        x_label: str = "",
+        row_labels: list = None,
+        ax = None,
+        figsize: tuple = (9.0, 1.6),
+        legend: bool = True,
+        edge: bool = False,
+        max_patches: int = 2000,
+        dpi: int = 150
+    ):
+    rows = values if isinstance(values, (list, tuple)) and np.ndim(values[0]) > 0 else [values]
+    rows = [np.asarray(r).astype(bool).ravel() for r in rows]
+    n = max(r.size for r in rows)
+ 
+    # ---- x edges: n + 1 boundaries ----
+    if x is None:
+        edges = np.arange(n + 1, dtype = float)
+ 
+    else:
+        x = np.asarray(x, dtype = float).ravel()
+ 
+        if x.size == n + 1:
+            edges = x
+ 
+        elif x.size == n:
+            step = np.diff(x)
+            step = np.append(step, step[-1] if step.size else 1.0)
+            edges = np.append(x, x[-1] + step[-1])
+ 
+        else:
+            raise ValueError(f"x has {x.size} entries; expected {n} or {n + 1}")
+ 
+ 
+    own_fig = ax is None
+ 
+    if own_fig:
+        fig, ax = plt.subplots(figsize = (figsize[0], figsize[1] * max(1, len(rows))))
+ 
+ 
+    row_h = height / len(rows)
+ 
+ 
+    import matplotlib.colors as mcolors
+    strip_cmap = mcolors.ListedColormap([false_colour, true_colour])
+ 
+ 
+    for r, row in enumerate(rows):
+        base = y_base + (len(rows) - 1 - r) * row_h
+        changes = np.flatnonzero(np.diff(row)) + 1
+ 
+ 
+        if changes.size + 1 > max_patches:
+            ax.imshow(row.reshape(1, -1), aspect = "auto", cmap = strip_cmap,
+                      vmin = 0, vmax = 1, interpolation = "nearest",
+                      extent = [edges[0], edges[-1], base, base + row_h],
+                      origin = "lower", zorder = 1)
+            continue
+ 
+ 
+        starts = np.concatenate(([0], changes))
+        stops = np.concatenate((changes, [row.size]))
+ 
+        for s0, s1 in zip(starts, stops):
+            ax.add_patch(plt.Rectangle(
+                (edges[s0], base), edges[s1] - edges[s0], row_h,
+                facecolor = true_colour if row[s0] else false_colour,
+                edgecolor = "white" if edge else "none",
+                linewidth = 0.3 if edge else 0.0))
+ 
+ 
+    ax.set_xlim(edges[0], edges[-1])
+ 
+ 
+    if own_fig:
+        ax.set_ylim(y_base, y_base + height)
+ 
+        if row_labels:
+            ax.set_yticks([y_base + (len(rows) - 1 - r) * row_h + row_h / 2
+                           for r in range(len(rows))])
+            ax.set_yticklabels(row_labels, fontsize = 9)
+ 
+        else:
+            ax.set_yticks([])
+ 
+ 
+        ax.set_xlabel(x_label)
+ 
+ 
+        if legend:
+            handles = [plt.Rectangle((0, 0), 1, 1, facecolor = true_colour),
+                       plt.Rectangle((0, 0), 1, 1, facecolor = false_colour)]
+            ax.legend(handles, [true_label, false_label], loc = "upper right",
+                      ncol = 2, frameon = False, fontsize = 9,
+                      bbox_to_anchor = (1.0, 1.35))
+ 
+ 
+        full = title or ""
+ 
+        if subtitle:
+            full = f"{full}\n{subtitle}" if full else subtitle
+ 
+ 
+        if full:
+            ax.set_title(full, fontsize = 11)
+ 
+ 
+        fig.tight_layout()
+        fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+        plt.close(fig)
+ 
+ 
+    return ax
+ 
