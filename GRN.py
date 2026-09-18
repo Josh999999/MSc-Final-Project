@@ -8,10 +8,6 @@ from Config import Config
 
 
 
-# Single definition of the working precision.  Every array the model computes
-# with is built at this dtype so no stage silently downcasts another; mixing
-# float32 and float64 costs ~9 significant digits and makes results depend on
-# which function last touched the array.
 DTYPE = np.float64
 
 
@@ -203,13 +199,6 @@ def mutate_profile(G: np.ndarray, cfg: Config, rng: np.random.Generator) -> np.n
 
 
 
-def random_profiles(n: int, cfg: Config, rng: np.random.Generator) -> np.ndarray:
-
-    return rng.uniform(low = -1.0, high = 1.0, size = (n, cfg.N)).astype(DTYPE, copy = False)
-
-
-
-
 def hebbian_interactions(cfg: Config, S: np.ndarray = None) -> np.ndarray:
     S = cfg.targets if S is None else S
     S = np.atleast_2d(np.asarray(S, dtype = DTYPE))
@@ -218,7 +207,7 @@ def hebbian_interactions(cfg: Config, S: np.ndarray = None) -> np.ndarray:
     H = masked_matrix(H, cfg.mask)
 
 
-    return H / cfg.Y if cfg.Y > 0 else H
+    return H * cfg.Y if cfg.Y > 0 else H
 
 
 

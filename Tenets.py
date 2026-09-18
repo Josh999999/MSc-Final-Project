@@ -127,7 +127,7 @@ def fitness_surface(
         n_seeds: int = 8,
         amplitude: float = 1.0,
         grid: int = 21,
-        induction_measure: str = "auc",
+        induction_measure: str = "auc_inner",
         measure: str = "fitness"
     ) -> dict:
     S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = DTYPE)
@@ -204,7 +204,7 @@ def fitness_surface(
 def plastic_measure_surface(
         cfg: Config,
         rng: np.random.Generator,
-        measure: str = "auc",
+        measure: str = "auc_inner",
         S_eval: np.ndarray = None,
         n_seeds: int = 4,
         amplitude: float = 1.0,

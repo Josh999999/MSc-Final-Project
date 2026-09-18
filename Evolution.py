@@ -37,7 +37,6 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         partner = cols * cfg.N + rows       # flat index of (j, i)
 
 
-
     # Recording the evolutionary process
     interaction_developments = []
     recorded_gens = []
@@ -78,50 +77,57 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
     F = 0
     F_mut = 0
+    Final_AUC = 0
 
 
 
     
     """ Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison """
-    def induction_history(history: dict) -> tuple[float, np.ndarray]:    
+    def induction_history(cfg: Config, history: dict) -> tuple[float, np.ndarray]:    
         F_mut = history["auc_inner"]
         B_ind = history["B"]
+        Final_AUC = 0
 
 
         # Log the linear progression of fitnesses curve (Record the start and end curve)
         if cfg.record:
-            start_curve = history['curve'][0]
-            end_curve = history['F']
-            F_ci = history['F_change_inner']
-            F_co = history['F_change_outer']
-            auc_inner = history['auc_inner']
-            auc_outer = history['auc_outer']
-            f_first_in = history['F_first_inner']
-            f_final_in = history['F_final_inner']
-            f_first_out = history['F_first_outer']
-            f_final_out = history['F_final_outer']
 
-            native_fitness.append(start_curve)
-            plastic_fitness.append(end_curve)
-            F_change_inner.append(F_ci)
-            F_change_outer.append(F_co)
-            AUC_inner.append(auc_inner)
-            AUC_outer.append(auc_outer)
-            F_first_inner.append(f_first_in)
-            F_final_inner.append(f_final_in)
-            F_first_outer.append(f_first_out)
-            F_final_outer.append(f_final_out)
+            if cfg.induction_process == "r-round":
+                start_curve = history['outer_curve'][0]
+                end_curve = history['F']
+                F_ci = history['F_change_inner']
+                F_co = history['F_change_outer']
+                auc_inner = history['auc_inner']
+                auc_outer = history['auc_outer']
+                f_first_in = history['F_first_inner']
+                f_final_in = history['F_final_inner']
+                f_first_out = history['F_first_outer']
+                f_final_out = history['F_final_outer']
+
+                native_fitness.append(start_curve)
+                plastic_fitness.append(end_curve)
+                F_change_inner.append(F_ci)
+                F_change_outer.append(F_co)
+                AUC_inner.append(auc_inner)
+                AUC_outer.append(auc_outer)
+                F_first_inner.append(f_first_in)
+                F_final_inner.append(f_final_in)
+                F_first_outer.append(f_first_out)
+                F_final_outer.append(f_final_out)
+
+                Final_AUC = history['inner_curve'][-1]
 
 
-        return F_mut, B_ind
+        return F_mut, B_ind, Final_AUC
 
 
 
-    def induction_switch() -> float:
+    def induction_switch(B: np.ndarray, P: np.ndarray, G: np.ndarray, S: np.ndarray, cfg: Config, rng: np.random.Generator, AUC: float) -> tuple[float]:
+        Final_AUC = 0
     
         if cfg.induction:
-            history = handle_induction(B, P, G, cfg, rng, S[ei], F)       
-            F_mut, B_ind = induction_history(history)
+            history = handle_induction(B, P, G, cfg, rng, S[ei], limit_return = not cfg.record, AUC = AUC)       
+            F_mut, B_ind, Final_AUC = induction_history(cfg, history)
 
         else:
             F_mut = evaluate_fitness(P, S[ei], cfg)
@@ -137,7 +143,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             fitnesses.append(F_mut)
 
 
-        return F_mut
+        return F_mut, Final_AUC
 
 
 
@@ -145,7 +151,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     # The initial model should be allowed it's own induction proccess for the sake of fairness and reliable comparison
     # Now all incumbents have been through the induction process (if not recently) exactly once
     # Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison
-    F = induction_switch()    
+    F, Final_AUC = induction_switch(B, P, G, S[ei], cfg, rng, AUC = F)    
 
 
 
@@ -160,7 +166,17 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             ei = int(rng.integers(M))
 
             # Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison
-            F = induction_switch()
+            F, Final_AUC = induction_switch(B, P, G, S[ei], cfg, rng, AUC = F)  
+
+
+            # Move to the next generation so we are not out of step with the generation index
+            continue
+
+        elif gen == 0:
+
+
+            # Move to the next generation so we are not out of step with the generation index
+            continue
 
 
 
@@ -210,8 +226,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         if cfg.induction:
 
             # Compute induction
-            history = handle_induction(B, P_mut, G, cfg, rng, S[ei], F)            
-            F_mut, B_ind = induction_history(history)
+            history = handle_induction(B, P_mut, G, cfg, rng, S[ei], limit_return = not cfg.record, AUC = Final_AUC)        
+            F_mut, B_ind, Final_AUC = induction_history(cfg, history)
 
         else:
             F_mut = evaluate_fitness(P_mut, S[ei], cfg)
@@ -305,7 +321,6 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
 
 
-
     if cfg.record:
         if interaction_developments:
             trajectories = np.array(interaction_developments, dtype = DTYPE).T
@@ -317,7 +332,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         
 
         # Final analysis of the convergence
-        if conv_first_gen == conv_stick_gen:
+        if not conv_first_gen == 1 and conv_first_gen == conv_stick_gen:
             conv_fgs = True
 
 
@@ -326,12 +341,29 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
 
 
         # Final analysis of the fitness
-        final_fitness_uncapped = fitness(P, S[ei], limit = False, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S, norm = cfg.normalise_fitness)
-        final_fitness_capped = fitness(P, S[ei], limit = True, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S, norm = cfg.normalise_fitness)
+        final_fitness_uncapped = fitness(P, S[ei], limit = False, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S[ei], norm = cfg.normalise_fitness)
+        final_fitness_capped = fitness(P, S[ei], limit = True, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S[ei], norm = cfg.normalise_fitness)
 
 
 
 
+
+
+    # Convert all arrays to numpy arrays before returning them
+    trajectories = np.array(trajectories, dtype = DTYPE)
+    gens = np.array(gens, dtype = int)
+    fitnesses = np.array(fitnesses, dtype = DTYPE)
+    selections = np.array(selections, dtype = bool)
+    G_alignment = np.array(G_alignment, dtype = DTYPE)
+    B_alignment = np.array(B_alignment, dtype = DTYPE)
+    B_magnitude = np.array(B_magnitude, dtype = DTYPE)
+    converged = np.array(converged, dtype = bool)
+    native_fitness = np.array(native_fitness, dtype = DTYPE)
+    plastic_fitness = np.array(plastic_fitness, dtype = DTYPE)
+    F_change_inner = np.array(F_change_inner, dtype = DTYPE)
+    F_change_outer = np.array(F_change_outer, dtype = DTYPE)
+    AUC_inner = np.array(AUC_inner, dtype = DTYPE)
+    AUC_outer = np.array(AUC_outer, dtype = DTYPE)
 
 
     if not cfg.record:
@@ -344,36 +376,59 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         }
 
 
-    return {
-        "B": B,
-        "G": G,
-        "P": P,
-        "F": F,
-        "target_index": ei,
-        "trajectories": trajectories,
-        "recorded_gens": gens,
-        "fitnesses": fitnesses,
-        "selections": selections,
-        "G_alignment": G_alignment,
-        "B_alignment": B_alignment,
-        "B_magnitude": B_magnitude,
-        "converged": converged, 
-        "native_fitness": native_fitness,
-        "plastic_fitness": plastic_fitness,
-        "F_change_inner": F_change_inner,
-        "F_change_outer": F_change_outer,
-        "AUC_inner": AUC_inner,
-        "AUC_outer": AUC_outer,
-        "conv_first_gen": conv_first_gen,
-        "conv_stick_gen": conv_stick_gen,
-        "conv_fgs": conv_fgs,
-        "conv_final_gen": conv_final_gen,
-        "conv_first_time": conv_first_time,
-        "conv_stick_time": conv_stick_time,
-        "final_fitness_uncapped": final_fitness_uncapped,
-        "final_fitness_capped": final_fitness_capped,        
-        "F_first_inner": F_first_inner,
-        "F_final_inner": F_final_inner,
-        "F_first_outer": F_first_outer,
-        "F_final_outer": F_final_outer,
-    }
+    return (
+        {
+            "B": B,
+            "G": G,
+            "P": P,
+            "F": F,
+            "target_index": ei,
+            "trajectories": trajectories,
+            "recorded_gens": gens,
+            "fitnesses": fitnesses,
+            "selections": selections,
+            "G_alignment": G_alignment,
+            "B_alignment": B_alignment,
+            "B_magnitude": B_magnitude,
+            "converged": converged, 
+            "native_fitness": native_fitness,
+            "plastic_fitness": plastic_fitness,
+            "F_change_inner": F_change_inner,
+            "F_change_outer": F_change_outer,
+            "AUC_inner": AUC_inner,
+            "AUC_outer": AUC_outer
+        },
+        {
+            "conv_first_gen": conv_first_gen,
+            "conv_stick_gen": conv_stick_gen,
+            "conv_fgs": conv_fgs,
+            "conv_final_gen": conv_final_gen,
+            "conv_first_time": conv_first_time,
+            "conv_stick_time": conv_stick_time,
+            "final_fitness_uncapped": final_fitness_uncapped,
+            "final_fitness_capped": final_fitness_capped,        
+            "F_first_inner": F_first_inner,
+            "F_final_inner": F_final_inner,
+            "F_first_outer": F_first_outer,
+            "F_final_outer": F_final_outer,
+        }
+    )
+
+
+
+
+def average_dictionaries(dictionaries: list[dict[np.ndarray | DTYPE]]) -> dict[np.ndarray]:
+    keys = list(dictionaries[0].keys())
+    n = len(keys)
+    A = [0.0] * n
+    average_items = np.asarray(A, dtype = DTYPE)
+
+    for item in dictionaries:
+        average_items += np.asarray(item.values(), dtype = DTYPE)
+
+    average_items /= n
+
+    average_dictionary = dict(zip(keys, average_items))
+
+
+    return average_dictionary

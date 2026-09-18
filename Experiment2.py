@@ -94,7 +94,7 @@ if __name__ == "__main__":
                     # Save the search data for the current row
                     data = []
                     data.append(history['acceptance_rate']) # Convert to a percentage in a string
-                    data.append(history["auc"])
+                    data.append(history["auc_inner"])
                     data.append(history["F_change"])
                     data.append(history["align_change"])
                     data.append(history["avg_accept_A"])

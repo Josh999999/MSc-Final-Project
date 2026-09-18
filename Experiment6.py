@@ -27,7 +27,7 @@ if __name__ == "__main__":
     #   diverging : signed quantity, centred on zero
     #   sequential: non-negative quantity
     MEASURES = (
-        ("auc",             "Plastic AUC (mean fitness over the search)", "diverging"),
+        ("auc_inner",             "Plastic AUC (mean fitness over the search)", "diverging"),
         ("F_change",        "Fitness change over the search",             "diverging"),
         ("acceptance_rate", "Acceptance rate",                            "diverging"),
         ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         # Same stream per panel so the panels are comparable.
         result = plastic_measure_surface(
             cfg, make_rng(cfg.seed),
-            measure = 'auc', n_seeds = 8, grid = 15
+            measure = "auc_inner", n_seeds = 8, grid = 15
         )
         surfaces.append(result)
 

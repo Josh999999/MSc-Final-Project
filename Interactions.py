@@ -144,9 +144,9 @@ def module_assignment(N: int, n_modules: int) -> np.ndarray:
  
  
 def module_sizes(N: int, n_modules: int) -> np.ndarray:
-    cfg = N // n_modules
-    sizes = np.full(n_modules, cfg, dtype = int)
-    sizes[: N - cfg * n_modules] += 1
+    r = N // n_modules
+    sizes = np.full(n_modules, r, dtype = int)
+    sizes[: N - r * n_modules] += 1
  
  
     return sizes

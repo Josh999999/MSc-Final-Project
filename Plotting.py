@@ -324,27 +324,6 @@ def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_
 
 
 
-def plot_interaction_trajectories(result: dict, saveloc: str, title: str = None):
-    fig, ax = plt.subplots(figsize = (6, 4))
- 
-    gens = np.asarray(result["recorded_gens"])
- 
- 
-    for trajectory in result["trajectories"]:
-        ax.plot(gens, trajectory, lw = 0.8)
- 
- 
-    ax.set_title(title)
-    ax.set_xlabel("Generations")
-    ax.set_ylabel("Regulation coefficient")
- 
-    fig.tight_layout()
-    fig.savefig(saveloc, dpi = 150)
-    plt.close(fig)
-
-
-
-
 def plot_trajectories(
         trajectories: np.ndarray, 
         keys: np.ndarray, 
@@ -367,10 +346,11 @@ def plot_trajectories(
         band: np.ndarray = None,
         bands: bool = True,
         band_alpha: float = 0.18,         
-        dpi: int = 150
+        dpi: int = 150,
+        figsize: tuple = (16, 10), # (6, 4) For interaction trajectories
     ):
     
-    fig, ax = plt.subplots(figsize = (16, 10))
+    fig, ax = plt.subplots(figsize = figsize)
     n = len(trajectories)
 
     for trajectory, key, ls in zip(trajectories, keys, linestyle):
@@ -453,8 +433,6 @@ def plot_trajectories(
 def plot_binary_strip(
         values,
         saveloc: str = "strip.png",
-        x = None,
-        ax = None,
         true_colour: str = "#2c7fb8",
         false_colour: str = "#f0f0f0",
         true_label: str = "True",
@@ -473,51 +451,16 @@ def plot_binary_strip(
         dpi: int = 150
     ):
  
-    v = np.asarray(values)
- 
-    if v.ndim != 1:
-        raise ValueError(f"values must be 1-D, got shape {v.shape}")
- 
-    v = v.astype(bool)
+    v = np.asarray(values, dtype = bool)
     n = v.size
+    edges = np.arange(n + 1, dtype = float)
  
  
-    if n == 0:
-        raise ValueError("values is empty")
- 
- 
-    # ---- cell boundaries -------------------------------------------------
-    if x is None:
-        edges = np.arange(n + 1, dtype = float)
- 
-    else:
-        xs = np.asarray(x, dtype = float)
- 
-        if xs.size == n + 1:
-            edges = xs
- 
-        elif xs.size == n:
-            # infer a trailing edge from the final spacing
-            step = (xs[-1] - xs[-2]) if n > 1 else 1.0
-            edges = np.concatenate([xs, [xs[-1] + step]])
- 
-        else:
-            raise ValueError(f"x must have {n} or {n + 1} entries, got {xs.size}")
- 
- 
-    # ---- run-length encode so each run is one rectangle ------------------
     change = np.flatnonzero(np.diff(v)) + 1
     starts = np.concatenate([[0], change])
     ends = np.concatenate([change, [n]])
  
-    own_fig = ax is None
- 
- 
-    if own_fig:
-        fig, ax = plt.subplots(figsize = figsize)
- 
-    else:
-        fig = ax.figure
+    fig, ax = plt.subplots(figsize = figsize)
  
  
     for a, b in zip(starts, ends):
@@ -533,44 +476,35 @@ def plot_binary_strip(
         )
  
  
-    ax.set_xlim(edges[0], edges[-1])
- 
- 
-    if own_fig:
-        ax.set_ylim(y_base, y_base + height)
-        ax.set_yticks([])
-        ax.set_xlabel(x_label)
- 
- 
-        if strip_label:
-            ax.set_ylabel(strip_label, rotation = 0, ha = "right", va = "center")
- 
- 
-        if legend:
-            ax.legend(handles = [Patch(facecolor = true_colour, label = true_label),
-                                 Patch(facecolor = false_colour, label = false_label)],
-                      loc = legend_loc, frameon = False, fontsize = 9, ncols = 2)
- 
- 
-        full = title or ""
- 
-        if subtitle:
-            full = f"{full}\n{subtitle}" if full else subtitle
- 
- 
-        if full:
-            ax.set_title(full, fontsize = 11)
- 
- 
-        fig.tight_layout()
-        fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
-        plt.close(fig)
- 
- 
-        return None
- 
- 
-    return ax
+    ax.set_xlim(edges[0], edges[-1]) 
+    ax.set_ylim(y_base, y_base + height)
+    ax.set_yticks([])
+    ax.set_xlabel(x_label)
+
+
+    if strip_label:
+        ax.set_ylabel(strip_label, rotation = 0, ha = "right", va = "center")
+
+
+    if legend:
+        ax.legend(handles = [Patch(facecolor = true_colour, label = true_label),
+                                Patch(facecolor = false_colour, label = false_label)],
+                    loc = legend_loc, frameon = False, fontsize = 9, ncols = 2)
+
+
+    full = title or ""
+
+    if subtitle:
+        full = f"{full}\n{subtitle}" if full else subtitle
+
+
+    if full:
+        ax.set_title(full, fontsize = 11)
+
+
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    plt.close(fig)
 
  
  
@@ -578,7 +512,6 @@ def plot_binary_strip(
 def plot_binary_bar(
         values,
         saveloc: str = "binary_bar.png",
-        x = None,
         true_colour: str = "#2b7bba",
         false_colour: str = "#d9d9d9",
         true_label: str = "True",
@@ -589,7 +522,6 @@ def plot_binary_bar(
         subtitle: str = None,
         x_label: str = "",
         row_labels: list = None,
-        ax = None,
         figsize: tuple = (9.0, 1.6),
         legend: bool = True,
         edge: bool = False,
@@ -598,37 +530,15 @@ def plot_binary_bar(
     ):
     rows = values if isinstance(values, (list, tuple)) and np.ndim(values[0]) > 0 else [values]
     rows = [np.asarray(r).astype(bool).ravel() for r in rows]
-    n = max(r.size for r in rows)
- 
-    # ---- x edges: n + 1 boundaries ----
-    if x is None:
-        edges = np.arange(n + 1, dtype = float)
- 
-    else:
-        x = np.asarray(x, dtype = float).ravel()
- 
-        if x.size == n + 1:
-            edges = x
- 
-        elif x.size == n:
-            step = np.diff(x)
-            step = np.append(step, step[-1] if step.size else 1.0)
-            edges = np.append(x, x[-1] + step[-1])
- 
-        else:
-            raise ValueError(f"x has {x.size} entries; expected {n} or {n + 1}")
+    n = max(r.size for r in rows) 
+    edges = np.arange(n + 1, dtype = float)
  
  
-    own_fig = ax is None
- 
-    if own_fig:
-        fig, ax = plt.subplots(figsize = (figsize[0], figsize[1] * max(1, len(rows))))
+    fig, ax = plt.subplots(figsize = (figsize[0], figsize[1] * max(1, len(rows))))
  
  
-    row_h = height / len(rows)
+    row_h = height / len(rows) 
  
- 
-    import matplotlib.colors as mcolors
     strip_cmap = mcolors.ListedColormap([false_colour, true_colour])
  
  
@@ -656,46 +566,39 @@ def plot_binary_bar(
                 linewidth = 0.3 if edge else 0.0))
  
  
-    ax.set_xlim(edges[0], edges[-1])
- 
- 
-    if own_fig:
-        ax.set_ylim(y_base, y_base + height)
- 
-        if row_labels:
-            ax.set_yticks([y_base + (len(rows) - 1 - r) * row_h + row_h / 2
-                           for r in range(len(rows))])
-            ax.set_yticklabels(row_labels, fontsize = 9)
- 
-        else:
-            ax.set_yticks([])
- 
- 
-        ax.set_xlabel(x_label)
- 
- 
-        if legend:
-            handles = [plt.Rectangle((0, 0), 1, 1, facecolor = true_colour),
-                       plt.Rectangle((0, 0), 1, 1, facecolor = false_colour)]
-            ax.legend(handles, [true_label, false_label], loc = "upper right",
-                      ncol = 2, frameon = False, fontsize = 9,
-                      bbox_to_anchor = (1.0, 1.35))
- 
- 
-        full = title or ""
- 
-        if subtitle:
-            full = f"{full}\n{subtitle}" if full else subtitle
- 
- 
-        if full:
-            ax.set_title(full, fontsize = 11)
- 
- 
-        fig.tight_layout()
-        fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
-        plt.close(fig)
- 
- 
-    return ax
- 
+    ax.set_xlim(edges[0], edges[-1]) 
+    ax.set_ylim(y_base, y_base + height)
+
+    if row_labels:
+        ax.set_yticks([y_base + (len(rows) - 1 - r) * row_h + row_h / 2
+                        for r in range(len(rows))])
+        ax.set_yticklabels(row_labels, fontsize = 9)
+
+    else:
+        ax.set_yticks([])
+
+
+    ax.set_xlabel(x_label)
+
+
+    if legend:
+        handles = [plt.Rectangle((0, 0), 1, 1, facecolor = true_colour),
+                    plt.Rectangle((0, 0), 1, 1, facecolor = false_colour)]
+        ax.legend(handles, [true_label, false_label], loc = "upper right",
+                    ncol = 2, frameon = False, fontsize = 9,
+                    bbox_to_anchor = (1.0, 1.35))
+
+
+    full = title or ""
+
+    if subtitle:
+        full = f"{full}\n{subtitle}" if full else subtitle
+
+
+    if full:
+        ax.set_title(full, fontsize = 11)
+
+
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    plt.close(fig)

@@ -32,7 +32,7 @@ class Config:
     N: int = 8                              # size of the phenotype (number of genes)
     targets: np.ndarray = field(default_factory = lambda: np.array([S1, S2], dtype = float))
     seed: int = DEFAULT_SEED
-    fitness_type: str = "cosine"            # Can be "cosine" or "standard"
+    fitness_type: str = "standard"            # Can be "cosine" or "standard"
     limit_fitness: bool = False             # Switch that limits gene representations affect on fitness to a magnitude of one
 
 
@@ -40,7 +40,7 @@ class Config:
     mask: np.ndarray = None                 # None -> dense minus the diagonal
     sparse_interactions: bool = False       # Create a mask for a sparse interaction matrix
     K: int = 4                              # out-degree before symmetrisation
-    symmetric_mask: bool = True
+    symmetric_mask: bool = False
     mask_combine: str = "union"             # "union" (mean degree ~2K) or "intersection"
     self_interaction: bool = False
 
@@ -91,18 +91,17 @@ class Config:
     energy_type: str = "standard"               # Can be 'standard' or 'differential'
     energy_normalise_interactions: bool = False # Normalise the interaction matrix inside of the energy calculations
     slack_limit: float = 0.01                   # Maximum amount of slack to be given in the randomised scaling of the energy limit boundry inside the plastic selection proccess
-    M: int = 20                                 # mutation attempts per plastic search
+    M: int = 100                                # mutation attempts per plastic search
     c: float = 2.0                              # single-gene mutation size
     c_tau: float = 1.0                          # tau = c_tau * std(dE) over the pool
     eta: float = 0.01                           # contrastive learning rate for B
     rounds: int = 10                            # R rounds of develop -> plasticity -> induct
-    mutation_type: str = "single-gene"          # "single-gene", "phenotype" or "perturbation"
+    mutation_type: str = "phenotype"            # Can be "single-gene" or "phenotype"
     tau_floor: float = 1e-12                    # guard for a degenerate candidate pool
     normalise_energy: bool = True               # Rayleigh quotient: direction only
-    relative_mutation: bool = False             # scale the step by |P|/sqrt(N)
     r_T: int = None                             # redevelopment time after updating
     relax: bool = False                         # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
-    induction_interactions: str = "inclusive"   # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
+    induction_interactions: str = "all"   # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
 
 
 

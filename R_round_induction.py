@@ -29,7 +29,7 @@ def r_round_induction(
 
     if AUC == -1:
         search = plastic_search_return_wrapper(B, P, cfg, rng, S, limit_return = True)
-        AUC = search['auc']
+        AUC = search["auc_inner"]
     
     inner_curve = [AUC]
     outer_curve = [F]
@@ -44,7 +44,7 @@ def r_round_induction(
         
         # Run placticity
         search = plastic_search_return_wrapper(B, P, cfg, rng, S, limit_return = True)
-        AUC = search['auc']
+        AUC = search["auc_inner"]
         P_ = search['P']
 
         inner_curve.append(AUC)
@@ -115,13 +115,15 @@ def r_round_induction_return_wrapper(
         limit_return: bool = False, 
         AUC: float = 0.0
     ) -> dict:
-    B, P, F, inner_curve, outer_curve, align_curve = r_round_induction(B, P, G, cfg, rng, S)
+    B, P, F, inner_curve, outer_curve, align_curve = r_round_induction(B, P, G, cfg, rng, S, AUC)
 
 
     if limit_return:
     
         return {
             "B": B,
+            "P": P,
+            "F": float(F),
             "auc_inner": np.mean(inner_curve) if inner_curve.size else 0.0,
         }
 

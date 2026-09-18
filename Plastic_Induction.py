@@ -12,12 +12,12 @@ from Interactions import adjust_interaction_magnitude
  
  
 def energy(P: np.ndarray, B: np.ndarray, cfg: Config, normalise: bool = True, normalise_interactions: bool = False) -> float:
-
+ 
     # Determine the interaction matrix
     if normalise_interactions:
         B = adjust_interaction_magnitude(B, cfg = cfg, Y = 1.0, inplace = False)
-
-
+ 
+ 
     P = np.asarray(P, dtype = DTYPE)
     q = float(-0.5 * P @ (B @ P))
  
@@ -31,16 +31,16 @@ def energy(P: np.ndarray, B: np.ndarray, cfg: Config, normalise: bool = True, no
  
  
     return q / n if n > 0 else 0.0
-
-
-
-
+ 
+ 
+ 
+ 
 def differential_energy(P: np.ndarray, P_try: np.ndarray, B: np.ndarray, cfg: Config, normalise: bool = True, normalise_interactions: bool = False) -> float:
-
+ 
     # Determine the interaction matrix
     if normalise_interactions:
         B = adjust_interaction_magnitude(B, cfg = cfg, Y = 1.0, inplace = False)
-
+ 
         
     P = np.asarray(P, dtype = DTYPE)
     P_try = np.asarray(P_try, dtype = DTYPE)
@@ -61,13 +61,14 @@ def differential_energy(P: np.ndarray, P_try: np.ndarray, B: np.ndarray, cfg: Co
  
  
  
-def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise: bool = True) -> np.ndarray:    
+def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise: bool = True) -> np.ndarray:
     h = np.asarray(h, dtype = DTYPE)
  
  
     if not normalise:
  
-        return -c * h
+        # -c*h for the +c moves, +c*h for the -c moves
+        return np.concatenate((-c * h, c * h))
  
  
     P = np.asarray(P, dtype = DTYPE)
@@ -75,10 +76,17 @@ def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise:
     n = float(P @ P)
  
     E0 = -0.5 * q / n if n > 0 else 0.0
-    E1 = -0.5 * (q + 2.0 * c * h) / (n + 2.0 * c * P + c * c)
+ 
+    # gene i moved by +c : |P|^2 -> n + 2*c*P_i + c^2,  P.h -> q + c*h_i
+    d_pos = n + 2.0 * c * P + c * c
+    E_pos = -0.5 * (q + 2.0 * c * h) / np.where(d_pos > 0, d_pos, 1.0)
+ 
+    # gene i moved by -c : |P|^2 -> n - 2*c*P_i + c^2,  P.h -> q - c*h_i
+    d_neg = n - 2.0 * c * P + c * c
+    E_neg = -0.5 * (q - 2.0 * c * h) / np.where(d_neg > 0, d_neg, 1.0)
  
  
-    return E1 - E0
+    return np.concatenate((E_pos - E0, E_neg - E0))
  
  
  
@@ -87,7 +95,7 @@ def adaptive_tau(dE_pool: np.ndarray, cfg: Config) -> float:
  
     return max(cfg.c_tau * float(np.std(dE_pool)), cfg.tau_floor)
  
-
+ 
  
  
 def phenotype_alignment(P: np.ndarray, B: np.ndarray, cfg: Config) -> float:
@@ -119,20 +127,22 @@ def plastic_search(
     A = phenotype_alignment(P, B, cfg) 
  
     curve = [F]
-    align_curve = [phenotype_alignment(P, B, cfg)]
+    align_curve = [A]
     accepted = 0
     accepted_alignments = []
+ 
+    tau = None
  
  
     for _ in range(cfg.M):      
  
         # Compute current phenotype mutation
         P_try = compute_mutation(P, cfg, rng)
-
-
+ 
+ 
         # Calculate the energy differential
         dE = 0
-
+ 
         if cfg.energy_type == "standard":
             E_try = energy(P_try, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
             E = energy(P, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
@@ -140,31 +150,32 @@ def plastic_search(
             
         elif cfg.energy_type == "differential":
             dE = differential_energy(P, P_try, B, cfg, normalise = cfg.normalise_energy, normalise_interactions = cfg.energy_normalise_interactions)
-
+ 
         
         # Alignment of the CANDIDATE: measuring P here records the pre-move state, so the curve lags and align_end misses the last accepted move.
         alignment = phenotype_alignment(P_try, B, cfg) 
         F_try = evaluate_fitness(P_try, S, cfg)
-
-
+ 
+ 
         # Apply the energy gates with fitness based selection
         if cfg.energy_gate in ["or", "and", "harsh"]:
-
-            # We only need the tau divisor to normalise the energy if we are using w in the energy gate
-            h = B @ P                                   
-                    
-            step = cfg.c * (np.linalg.norm(P) / np.sqrt(cfg.N)) if cfg.relative_mutation else cfg.c
-            step = max(step, 1e-12)
-        
-            # Pool statistics over every single-gene move of the nominal size.
-            dE_pool = candidate_energies(h, step, P, cfg.normalise_energy)
-            tau = adaptive_tau(dE_pool, cfg)
-
-
+ 
+            # tau depends only on P, so recompute it only when P has moved.
+            if tau is None:
+                h = B @ P
+ 
+                step = cfg.c * (np.linalg.norm(P) / np.sqrt(cfg.N)) if cfg.relative_mutation else cfg.c
+                step = max(step, 1e-12)
+ 
+                # Pool statistics over every single-gene move of the nominal size.
+                dE_pool = candidate_energies(h, step, P, cfg.normalise_energy)
+                tau = adaptive_tau(dE_pool, cfg)
+ 
+ 
             # Calculate the energy probability
             w = sigmoid_sigma(-dE / tau)
-
-
+ 
+ 
             # Apply the relevant energy gates
             if cfg.energy_gate == "or":        
                 accept = (F_try > F) or (rng.random() < w)
@@ -190,7 +201,10 @@ def plastic_search(
             accepted += 1
             accepted_alignments.append(alignment)
  
-
+            # P has moved, so the cached h / tau are stale.
+            tau = None
+ 
+ 
         curve.append(F)
         align_curve.append(A)
  
@@ -204,17 +218,18 @@ def plastic_search_return_wrapper(B: np.ndarray, P: np.ndarray, cfg: Config, rng
  
     B, P, F, curve, align_curve, accepted_alignments, accepted = plastic_search(B, P, cfg, rng, S)
  
-
+ 
     # Used for the induction process
     if limit_return:
     
         return {
+            "B": B,
             "P": P,
             "F": float(F),
-            "auc": float(np.mean(curve)) if len(curve) else 0.0
+            "auc_inner": float(np.mean(curve)) if len(curve) else 0.0
         }
  
-
+ 
     # Used for analysis
     return {
         "B": B,
@@ -223,7 +238,7 @@ def plastic_search_return_wrapper(B: np.ndarray, P: np.ndarray, cfg: Config, rng
         "F_change": float(curve[-1] - curve[0]),
         "avg_accept_A": float(np.mean(accepted_alignments)) if len(accepted_alignments) else 0.0,
         "std_accept_A": float(np.std(accepted_alignments)) if len(accepted_alignments) else 0.0, 
-        "auc": float(np.mean(curve)) if len(curve) else 0.0,                 # area under the ABSOLUTE curve
+        "auc_inner": float(np.mean(curve)) if len(curve) else 0.0,                 # area under the ABSOLUTE curve
         "acceptance_rate": float(accepted / cfg.M) if accepted and cfg.M else 0.0,        # collapse signature (5.6)
         "curve": curve,
         "align_curve": align_curve,

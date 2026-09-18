@@ -26,7 +26,7 @@ if __name__ == "__main__":
     MEASURES = (
         # diverging only where the measure is genuinely SIGNED; a zero-centred
         # scale on a non-negative measure wastes half the colormap.
-        ("auc",             "Plastic AUC (mean fitness over the search)", "sequential"),
+        ("auc_inner",             "Plastic AUC (mean fitness over the search)", "sequential"),
         ("F_change",        "Fitness change over the search",             "diverging"),
         ("acceptance_rate", "Acceptance rate",                            "sequential"),
         ("align_change",    "Change in cos(P (x) P, B)",                  "diverging"),
