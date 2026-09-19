@@ -17,12 +17,6 @@ from Plotting import create_search_table
  
  
 
-
- 
- 
- 
-# Where this experiment writes its figures.  Kept out of Config: it is a
-# property of the SCRIPT, not of the model being configured.
 FIGURES_OUTPUT = "Experiment2"
 
 
@@ -30,13 +24,11 @@ FIGURES_OUTPUT = "Experiment2"
 
 if __name__ == "__main__":
  
-    # One config, constructed and validated up front. No ordering hazard:
-    # targets, N and the mask are checked against each other in __post_init__.
+    # One config, constructed and validated up front. No ordering hazard: targets, N and the mask are checked against each other in __post_init__.
     cfg = Config(
         N = len(S1),
         targets = S1,
         induction = True,
-        normalise_interactions = True,
     )
  
     COLUMN_TITLES = (
@@ -55,8 +47,6 @@ if __name__ == "__main__":
     
  
  
- 
-    """Test the Plastic search for a range of different initialised interaction matricies"""
  
     # Replicable functionality for running the experiment
     def _experiment2(cfg: Config, n_seeds: int = 8):
@@ -131,19 +121,8 @@ if __name__ == "__main__":
  
  
  
-    # !-- Sweep the interaction builders --!
-    #
-    # The builder controls how well B already encodes the target, i.e. Tenet 1.
-    # Appropriate interactions make development converge onto the target, so the
-    # search starts at F = 1 and has no headroom; the noisy and random builders
-    # leave room for the gates to differ.
- 
-    # Each builder returns (B, cfg).  Most keep the default dense mask, but the
-    # sparse case must change the CONFIG as well, because the mask governs which
-    # entries the search, the energy and the alignment measure all look at.
- 
+    # !-- Sweep the interaction builders --! 
     def _dense(build):
-        """Builder that keeps the default (dense) mask."""
  
         def wrapped(cfg, rng):
             cfg = with_mask(cfg, diag_mask(cfg))
@@ -152,18 +131,12 @@ if __name__ == "__main__":
             return build(cfg, rng), cfg
  
  
-        return wrapped
- 
+        return wrapped 
+
  
  
  
     def _sparse(build):
-        """
-        Builder on a SPARSE topology.  sparse_topology returns a mask, not a
-        matrix, and the mask governs which entries the search, the energy and
-        the alignment measure all look at -- so the CONFIG has to change too,
-        not just B.
-        """
  
         def wrapped(cfg, rng):
             mask = sparse_topology(cfg, rng)
@@ -175,12 +148,10 @@ if __name__ == "__main__":
  
         return wrapped
  
+
  
  
- 
-    # Appropriate / inappropriate crossed with dense, modular and sparse
-    # topologies: the topology sets the structure, the appropriateness sets
-    # whether B points toward the target or away from it.
+    # Appropriate / inappropriate crossed with dense, modular and sparse topologies
     BUILDERS = (
         ("appropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,

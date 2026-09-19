@@ -18,72 +18,72 @@ def plot_fitness_surface(
         vmax: float = None,
         n_seeds: int = None
     ):
-
+ 
     n = len(surfaces)
     allZ = np.concatenate([np.asarray(s["Z"]).ravel() for s in surfaces])
-
+ 
     diverging = (scale == "diverging")
     cmap = "coolwarm" if diverging else "viridis"
-
+ 
     lo, hi = float(np.nanmin(allZ)), float(np.nanmax(allZ))
-
-
+ 
+ 
     if vmin is None or vmax is None:
-
+ 
         if diverging:
             m = max(abs(lo), abs(hi)) or 1.0
             auto_min, auto_max = -m, m
-
+ 
         else:
             auto_min, auto_max = lo, (hi if hi != lo else lo + 1e-12)
-
+ 
         vmin = auto_min if vmin is None else vmin
         vmax = auto_max if vmax is None else vmax
-
-
+ 
+ 
     fig, axes = plt.subplots(1, n, figsize = (3.6 * n, 3.9), squeeze = False)
-
-
+ 
+ 
     for ax, s in zip(axes[0], surfaces):
         a1, a2 = s["a1_grid"], s["a2_grid"]
-
+ 
         im = ax.imshow(
             s["Z"], origin = "lower", cmap = cmap, vmin = vmin, vmax = vmax,
             extent = [a1[0], a1[-1], a2[0], a2[-1]], aspect = "auto"
         )
         ax.axhline(0, color = "k", lw = 0.5, alpha = 0.4)
         ax.axvline(0, color = "k", lw = 0.5, alpha = 0.4)
-
+ 
         ax.set_title(f"magnitude $Y$ = {s['Y']:g}", fontsize = 10)
         ax.set_xlabel("Tenet 1:  cos(B, $SS^T$)")
-
-
+ 
+ 
         if ax is axes[0][0]:
             ax.set_ylabel("Tenet 2:  cos(G, S)")
-
+ 
         else:
             ax.set_yticklabels([])
-
-
+ 
+ 
     fig.colorbar(im, ax = axes[0].tolist(), fraction = 0.025, pad = 0.02,
                  label = label_measure)
-
+ 
     # n is the number of PANELS (one per magnitude), not the seed count, so the
     # seed count has to be passed in if it is to be reported.
     title = f"{label_measure} over the two-tenet space"
-
-
+ 
+ 
     if n_seeds is not None:
         title = f"{title}  (seeds per cell: {n_seeds})"
-
-
+ 
+ 
     fig.suptitle(title, fontsize = 11)
     fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
-
-
-
-
+ 
+ 
+ 
+ 
 def plot_measure_surfaces(
         surfaces: list,
         saveloc: str = "tenet_measure.png",
@@ -320,22 +320,51 @@ def create_search_table(column_tites: np.ndarray, row_results: np.ndarray, save_
  
     fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
-
-
-
-
+ 
+ 
+ 
+ 
+def plot_switches(
+        ax_strip: plt.Axes,
+        x_switches: np.ndarray = None
+    ):
+ 
+    # Accept either the switch GENERATIONS ([150, 300, 450]) or the
+    # per-generation boolean mask ([False, ..., True, ...]).  Iterating a
+    # boolean array yields False/True, which drew every marker at x = 0 and
+    # x = 1 instead of at the switches.
+    x_switches = np.asarray(x_switches)
+ 
+    if x_switches.dtype == bool:
+        x_switches = np.flatnonzero(x_switches)
+ 
+ 
+    # The strip: one rectangle per switch generation.
+    for x_s in x_switches:
+        ax_strip.add_patch(plt.Rectangle((x_s, 0), 1, 1, facecolor = "#cc4444", edgecolor = "none"))
+ 
+ 
+    ax_strip.set_ylim(0, 1)
+    ax_strip.set_yticks([])
+    ax_strip.set_xlabel("generation")
+    ax_strip.set_ylabel("switch", rotation = 0, ha = "right", va = "center", fontsize = 8)
+    
+ 
+ 
+ 
 def plot_trajectories(
         trajectories: np.ndarray, 
-        keys: np.ndarray, 
-        linestyle: np.ndarray, 
-        marker: str, 
+        keys: np.ndarray = None, 
+        x: np.ndarray = None,
+        linestyle: np.ndarray = None, 
+        marker: str = "none", 
         x_label = "x",
         y_label = "y",
         x_scale: str = "linear",
         y_scale: str = "linear",
         x_limits: tuple = None,
         y_limits: tuple = None,
-        grid: bool = True,
+        grid: bool = False,
         title: str = None,        
         subtitle: str = None,
         saveloc: str = "./", 
@@ -344,20 +373,40 @@ def plot_trajectories(
         moving_average: bool = False,
         smooth: int = 0,
         band: np.ndarray = None,
-        bands: bool = True,
+        bands: bool = False,
         band_alpha: float = 0.18,         
         dpi: int = 150,
         figsize: tuple = (16, 10), # (6, 4) For interaction trajectories
+        switch_plot: bool = False,
+        switch_lines: bool = False,
+        x_switches: np.ndarray = None
     ):
-    
-    fig, ax = plt.subplots(figsize = figsize)
+    fig = None
+    ax = None
+    ax_strip = None
+ 
+    if switch_plot:
+        fig, (ax, ax_strip) = plt.subplots(
+                2, 1, figsize = (9.0, 4.6), sharex = True,
+                gridspec_kw = {"height_ratios": [4, 1], "hspace": 0.08}
+            )
+        
+    else:
+        fig, ax = plt.subplots(figsize = figsize)
+ 
+ 
     n = len(trajectories)
-
+ 
+    keys = [None] * n if not keys else keys
+    linestyle = ["solid"] * n if not linestyle else linestyle
+    marker = "none" if not marker else marker
+ 
+ 
     for trajectory, key, ls in zip(trajectories, keys, linestyle):
-
+ 
         trajectory_plot = trajectory
-
-
+ 
+ 
         if moving_average and not (smooth is None or smooth < 2 or trajectory_plot.size < smooth):
     
                 # centred, edge-padded so the smoothed line keeps its length
@@ -365,10 +414,22 @@ def plot_trajectories(
                 padded = np.pad(trajectory_plot, (pad, smooth - 1 - pad), mode = "edge")
         
                 trajectory_plot = np.convolve(padded, np.ones(smooth) / smooth, mode = "valid")
-
-        
-        xs = np.arange(trajectory_plot.size)
-
+ 
+ 
+        # `x` lets a SUBSAMPLED series be plotted against the generations it was
+        # actually recorded at (recorded_gens), instead of 0..len-1.  Smoothing
+        # does not change the length, so the same x applies either way.
+        if x is None:
+            xs = np.arange(trajectory_plot.size)
+ 
+        else:
+            xs = np.asarray(x, dtype = float)
+ 
+            if xs.size != trajectory_plot.size:
+                raise ValueError(
+                    f"x has {xs.size} points but the series has {trajectory_plot.size}; "
+                    "a subsampled series must be plotted against recorded_gens")
+ 
         ax.plot(
             xs,
             trajectory_plot, 
@@ -376,11 +437,11 @@ def plot_trajectories(
             lw = 1 + 0.1 * np.log(n), 
             linestyle = ls, 
             marker = marker,
-            marker_size = marker_size,
+            markersize = marker_size,
             alpha = alpha
         )
-
-
+ 
+ 
         if bands and band is not None:
  
             if isinstance(band, (tuple, list)) and len(band) == 2 and np.ndim(band[0]) > 0:
@@ -392,8 +453,27 @@ def plot_trajectories(
  
  
             ax.fill_between(xs, lower, upper, alpha = band_alpha, linewidth = 0)
-
-
+ 
+ 
+ 
+ 
+    # Place the Vertical lines for the switch points
+    if switch_lines and x_switches is not None and len(x_switches):
+        x_lines = np.asarray(x_switches)
+ 
+        if x_lines.dtype == bool:
+            x_lines = np.flatnonzero(x_lines)
+ 
+ 
+        for x_s in x_lines:
+            ax.axvline(x_s, color = "k", ls = "--", lw = 0.7, alpha = 0.45)
+ 
+ 
+    if switch_plot:
+        plot_switches(ax_strip, x_switches)
+ 
+ 
+ 
     ax.set_xscale(x_scale)
     ax.set_yscale(y_scale)
     ax.set_xlabel(x_label)
@@ -402,17 +482,17 @@ def plot_trajectories(
  
     if x_limits: 
         ax.set_xlim(*x_limits)
-
+ 
     if y_limits: 
         ax.set_ylim(*y_limits)
-
+ 
     if grid:     
         ax.grid(alpha = 0.25, linewidth = 0.6)
-
-
+ 
+ 
     ax.legend(frameon = False, fontsize = 9)
-
-
+ 
+ 
     full_title = title or ""
  
     if subtitle:
@@ -426,10 +506,10 @@ def plot_trajectories(
     fig.tight_layout()
     fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
-
-
-
-
+ 
+ 
+ 
+ 
 def plot_binary_strip(
         values,
         saveloc: str = "strip.png",
@@ -448,8 +528,23 @@ def plot_binary_strip(
         legend: bool = True,
         legend_loc: str = "upper right",
         figsize: tuple = (9.0, 1.9),
-        dpi: int = 150
+        dpi: int = 150,
+        switch_plot: bool = False,
+        x_switches: np.ndarray = None
     ):
+    fig = None
+    ax = None
+    ax_strip = None
+ 
+    if switch_plot:
+        fig, (ax, ax_strip) = plt.subplots(
+                2, 1, figsize = (9.0, 4.6), sharex = True,
+                gridspec_kw = {"height_ratios": [4, 1], "hspace": 0.08}
+            )
+        
+    else:
+        fig, ax = plt.subplots(figsize = figsize)
+ 
  
     v = np.asarray(values, dtype = bool)
     n = v.size
@@ -459,8 +554,6 @@ def plot_binary_strip(
     change = np.flatnonzero(np.diff(v)) + 1
     starts = np.concatenate([[0], change])
     ends = np.concatenate([change, [n]])
- 
-    fig, ax = plt.subplots(figsize = figsize)
  
  
     for a, b in zip(starts, ends):
@@ -476,129 +569,86 @@ def plot_binary_strip(
         )
  
  
+    if switch_plot:
+        plot_switches(ax_strip, x_switches)
+ 
+ 
     ax.set_xlim(edges[0], edges[-1]) 
     ax.set_ylim(y_base, y_base + height)
     ax.set_yticks([])
     ax.set_xlabel(x_label)
-
-
+ 
+ 
     if strip_label:
         ax.set_ylabel(strip_label, rotation = 0, ha = "right", va = "center")
-
-
+ 
+ 
     if legend:
         ax.legend(handles = [Patch(facecolor = true_colour, label = true_label),
                                 Patch(facecolor = false_colour, label = false_label)],
                     loc = legend_loc, frameon = False, fontsize = 9, ncols = 2)
-
-
+ 
+ 
     full = title or ""
-
+ 
     if subtitle:
         full = f"{full}\n{subtitle}" if full else subtitle
-
-
+ 
+ 
     if full:
         ax.set_title(full, fontsize = 11)
-
-
+ 
+ 
     fig.tight_layout()
     fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
-
  
  
  
-def plot_binary_bar(
-        values,
-        saveloc: str = "binary_bar.png",
-        true_colour: str = "#2b7bba",
-        false_colour: str = "#d9d9d9",
-        true_label: str = "True",
-        false_label: str = "False",
-        height: float = 1.0,
-        y_base: float = 0.0,
-        title: str = None,
-        subtitle: str = None,
-        x_label: str = "",
-        row_labels: list = None,
-        figsize: tuple = (9.0, 1.6),
-        legend: bool = True,
-        edge: bool = False,
-        max_patches: int = 2000,
-        dpi: int = 150
+ 
+def plot_transfer(
+        transfer_fitness: np.ndarray, 
+        fitnesses: np.ndarray, 
+        transfer_loss: np.ndarray, 
+        switches: np.ndarray, 
+        saveloc: str,
+        x: np.ndarray = None
     ):
-    rows = values if isinstance(values, (list, tuple)) and np.ndim(values[0]) > 0 else [values]
-    rows = [np.asarray(r).astype(bool).ravel() for r in rows]
-    n = max(r.size for r in rows) 
-    edges = np.arange(n + 1, dtype = float)
+    switch_gens = np.flatnonzero(np.asarray(switches, dtype = bool))
+ 
+    fig, (ax_fit, ax_loss) = plt.subplots(
+        2, 1, figsize = (9.0, 5.2), sharex = True,
+        gridspec_kw = {"height_ratios": [3, 2], "hspace": 0.10}
+    )
+ 
+    # Subsampled series carry their own x (recorded_gens); without it they would
+    # be plotted at 0..len-1 and compressed against the left of the axis.
+    xs = np.arange(np.size(fitnesses)) if x is None else np.asarray(x, dtype = float)
+ 
+    ax_fit.plot(xs, fitnesses, lw = 1.3, color = "#2b7bba", label = "Selected Fitness")
+    ax_fit.plot(xs, transfer_fitness, "o", ms = 7, color = "#cc4444", label = "incumbent on NEW target (switch only)")
  
  
-    fig, ax = plt.subplots(figsize = (figsize[0], figsize[1] * max(1, len(rows))))
+    for g in switch_gens:
+        ax_fit.axvline(g, color = "k", ls = "--", lw = 0.7, alpha = 0.4)
  
  
-    row_h = height / len(rows) 
+    ax_fit.set_ylabel("Fitness")
+    ax_fit.legend(frameon = False, fontsize = 8)
+    ax_fit.grid(alpha = 0.25)
  
-    strip_cmap = mcolors.ListedColormap([false_colour, true_colour])
- 
- 
-    for r, row in enumerate(rows):
-        base = y_base + (len(rows) - 1 - r) * row_h
-        changes = np.flatnonzero(np.diff(row)) + 1
+    ax_loss.plot(xs, transfer_loss, "o-", ms = 6, color = "#cc4444")
+    ax_loss.axhline(0, color = "k", lw = 0.8, alpha = 0.5)
  
  
-        if changes.size + 1 > max_patches:
-            ax.imshow(row.reshape(1, -1), aspect = "auto", cmap = strip_cmap,
-                      vmin = 0, vmax = 1, interpolation = "nearest",
-                      extent = [edges[0], edges[-1], base, base + row_h],
-                      origin = "lower", zorder = 1)
-            continue
+    for g in switch_gens:
+        ax_loss.axvline(g, color = "k", ls = "--", lw = 0.7, alpha = 0.4)
  
  
-        starts = np.concatenate(([0], changes))
-        stops = np.concatenate((changes, [row.size]))
+    ax_loss.set_ylabel("Fitness lost\nat the Switch")
+    ax_loss.set_xlabel("Generation")
+    ax_loss.grid(alpha = 0.25)
  
-        for s0, s1 in zip(starts, stops):
-            ax.add_patch(plt.Rectangle(
-                (edges[s0], base), edges[s1] - edges[s0], row_h,
-                facecolor = true_colour if row[s0] else false_colour,
-                edgecolor = "white" if edge else "none",
-                linewidth = 0.3 if edge else 0.0))
- 
- 
-    ax.set_xlim(edges[0], edges[-1]) 
-    ax.set_ylim(y_base, y_base + height)
-
-    if row_labels:
-        ax.set_yticks([y_base + (len(rows) - 1 - r) * row_h + row_h / 2
-                        for r in range(len(rows))])
-        ax.set_yticklabels(row_labels, fontsize = 9)
-
-    else:
-        ax.set_yticks([])
-
-
-    ax.set_xlabel(x_label)
-
-
-    if legend:
-        handles = [plt.Rectangle((0, 0), 1, 1, facecolor = true_colour),
-                    plt.Rectangle((0, 0), 1, 1, facecolor = false_colour)]
-        ax.legend(handles, [true_label, false_label], loc = "upper right",
-                    ncol = 2, frameon = False, fontsize = 9,
-                    bbox_to_anchor = (1.0, 1.35))
-
-
-    full = title or ""
-
-    if subtitle:
-        full = f"{full}\n{subtitle}" if full else subtitle
-
-
-    if full:
-        ax.set_title(full, fontsize = 11)
-
-
-    fig.tight_layout()
-    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    fig.suptitle("Transfer to a new Target, recorded in-line with NaN padding", fontsize = 11)
+    fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)

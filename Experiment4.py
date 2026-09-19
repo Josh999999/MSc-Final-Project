@@ -11,8 +11,6 @@ from Plotting import plot_measure_surfaces
  
  
  
-# Where this experiment writes its figures.  Kept out of Config: it is a
-# property of the SCRIPT, not of the model being configured.
 FIGURES_OUTPUT = "Experiment4"
 
 
@@ -20,11 +18,7 @@ FIGURES_OUTPUT = "Experiment4"
 
 if __name__ == "__main__":
  
-    # What the plastic search reports, and how each should be coloured.
-    #   diverging : signed quantity, centred on zero
-    #   sequential: non-negative quantity
     MEASURES = (
-        # diverging only where the measure is genuinely SIGNED.
         ("auc_inner",             "Plastic AUC (mean fitness over the search)",         "sequential"),
         ("auc_outer",             "Relaxed AUC (mean fitness over the search)",         "sequential"),
         ("F_change_inner",        "Plastic Fitness change over the search",             "diverging"),
@@ -36,16 +30,6 @@ if __name__ == "__main__":
         N = len(S1),
         targets = S1,
         induction = True,
-        induction_process = "r-round",
-        T = 10,
-        normalise_interactions = True,
-        normalise_energy = False,
-        energy_type = "differential",
-        M = 100,
-        fitness_type = "standard",
-        mutation_type = "phenotype",
-        normalise_fitness = True,
-        limit_fitness = True
     )
  
     os.makedirs(FIGURES_OUTPUT, exist_ok = True)

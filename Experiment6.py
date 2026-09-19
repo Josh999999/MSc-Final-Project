@@ -93,3 +93,6 @@ if __name__ == "__main__":
         subtitle = f"energy gate: Deterministic",
         colour_scale = "percentile"
     )
+
+    print(f"running: Experiment1")
+    print(f"  wrote {OUTPUT}")

@@ -10,9 +10,7 @@ from Plotting import plot_measure_surfaces
 
  
  
- 
-# Where this experiment writes its figures.  Kept out of Config: it is a
-# property of the SCRIPT, not of the model being configured.
+
 FIGURES_OUTPUT = "Experiment3"
 
 
@@ -20,12 +18,7 @@ FIGURES_OUTPUT = "Experiment3"
 
 if __name__ == "__main__":
  
-    # What the plastic search reports, and how each should be coloured.
-    #   diverging : signed quantity, centred on zero
-    #   sequential: non-negative quantity
     MEASURES = (
-        # diverging only where the measure is genuinely SIGNED; a zero-centred
-        # scale on a non-negative measure wastes half the colormap.
         ("auc_inner",             "Plastic AUC (mean fitness over the search)", "sequential"),
         ("F_change",        "Fitness change over the search",             "diverging"),
         ("acceptance_rate", "Acceptance rate",                            "sequential"),
@@ -38,20 +31,12 @@ if __name__ == "__main__":
         targets = S1,
         induction = True,
         induction_process = "plastic",
-        T = 10,
-        normalise_interactions = True,
-        normalise_energy = False,
-        energy_type = "differential",
-        M = 100,
-        fitness_type = "standard",
-        mutation_type = "phenotype"
     )
  
     os.makedirs(FIGURES_OUTPUT, exist_ok = True)
  
  
-    # One figure per (gate, measure): panels across the magnitude sweep, each
-    # panel a heatmap over Tenet 1 (x) by Tenet 2 (y).
+    # One figure per (gate, measure): panels across the magnitude sweep, each panel a heatmap over Tenet 1 (x) by Tenet 2 (y).
     for gate in ENERGY_GATES:
  
         for key, label, scale in MEASURES:

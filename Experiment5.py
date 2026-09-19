@@ -21,10 +21,6 @@ from Plotting import create_search_table
  
  
  
- 
- 
-# Where this experiment writes its figures.  Kept out of Config: it is a
-# property of the SCRIPT, not of the model being configured.
 FIGURES_OUTPUT = "Experiment5"
 
 
@@ -32,25 +28,21 @@ FIGURES_OUTPUT = "Experiment5"
 
 if __name__ == "__main__":
  
-    # One config, constructed and validated up front. No ordering hazard:
-    # targets, N and the mask are checked against each other in __post_init__.
+    # One config, constructed and validated up front. No ordering hazard: targets, N and the mask are checked against each other in __post_init__.
     cfg = Config(
         N = len(S1),
         targets = S1,
         induction = True,
-        normalise_interactions = True,
     )
  
     MUTATIONS = [25, 50, 100, 250, 400]
  
     # Generate the starting profile (Constant used for all interaction matricies)
     G = make_rng(cfg.seed).uniform(low = -1, high = 1, size = cfg.N)
- 
- 
+
+
     # Create the masks
     masks = []
-    # K is the out-degree BEFORE symmetrisation, so it cannot exceed N-1.
-    # K = N-1 is fully dense; small K leaves few active interactions.
     SPARSITIES = [1, 2, 4, 6, cfg.N - 1]
  
     for K in SPARSITIES:
@@ -60,9 +52,7 @@ if __name__ == "__main__":
     
  
  
- 
-    """Test the Plastic search for a range of different initialised interaction matricies"""
- 
+
     # Replicable functionality for running the experiment
     def _experiment5(cfg: Config, measurement: str = "align_change", gate: str = "or", n_seeds: int = 8):
 
@@ -142,19 +132,8 @@ if __name__ == "__main__":
  
  
  
-    # !-- Sweep the interaction builders --!
-    #
-    # The builder controls how well B already encodes the target, i.e. Tenet 1.
-    # Appropriate interactions make development converge onto the target, so the
-    # search starts at F = 1 and has no headroom; the noisy and random builders
-    # leave room for the gates to differ.
- 
-    # Each builder returns (B, cfg).  Most keep the default dense mask, but the
-    # sparse case must change the CONFIG as well, because the mask governs which
-    # entries the search, the energy and the alignment measure all look at.
  
     def _dense(build):
-        """Builder that simply returns the matrix (mask is set later)."""
  
         def wrapped(cfg, rng):            
             cfg = with_mask(cfg, diag_mask(cfg))
@@ -168,9 +147,7 @@ if __name__ == "__main__":
  
  
  
-    # Appropriate / inappropriate crossed with dense, modular and sparse
-    # topologies: the topology sets the structure, the appropriateness sets
-    # whether B points toward the target or away from it.
+    # Appropriate / inappropriate crossed with dense, modular and sparse topologies
     BUILDERS = (
         ("appropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,

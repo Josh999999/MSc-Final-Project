@@ -67,7 +67,6 @@ def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise:
  
     if not normalise:
  
-        # -c*h for the +c moves, +c*h for the -c moves
         return np.concatenate((-c * h, c * h))
  
  
@@ -77,11 +76,9 @@ def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise:
  
     E0 = -0.5 * q / n if n > 0 else 0.0
  
-    # gene i moved by +c : |P|^2 -> n + 2*c*P_i + c^2,  P.h -> q + c*h_i
     d_pos = n + 2.0 * c * P + c * c
     E_pos = -0.5 * (q + 2.0 * c * h) / np.where(d_pos > 0, d_pos, 1.0)
  
-    # gene i moved by -c : |P|^2 -> n - 2*c*P_i + c^2,  P.h -> q - c*h_i
     d_neg = n - 2.0 * c * P + c * c
     E_neg = -0.5 * (q - 2.0 * c * h) / np.where(d_neg > 0, d_neg, 1.0)
  
@@ -133,7 +130,7 @@ def plastic_search(
  
     tau = None
  
- 
+
     for _ in range(cfg.M):      
  
         # Compute current phenotype mutation

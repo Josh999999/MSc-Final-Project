@@ -15,11 +15,6 @@ def make_rng(seed: int = DEFAULT_SEED) -> np.random.Generator:
 
 # !-- Global variables --!
 
-# String Option lists
-# Only ENERGY_GATES is consumed elsewhere (the experiments sweep it).  The
-# other option lists existed for the validation block in __post_init__, which
-# no longer exists; the dispatch tables in GRN.SIGMOIDS and
-# Mutations.MUTATION_TYPES are the live definitions.
 ENERGY_GATES = ("or", "and", "harsh", "deterministic")
 
 
@@ -32,8 +27,8 @@ class Config:
     N: int = 8                              # size of the phenotype (number of genes)
     targets: np.ndarray = field(default_factory = lambda: np.array([S1, S2], dtype = float))
     seed: int = DEFAULT_SEED
-    fitness_type: str = "standard"            # Can be "cosine" or "standard"
-    limit_fitness: bool = False             # Switch that limits gene representations affect on fitness to a magnitude of one
+    fitness_type: str = "standard"         # Can be "cosine" or "standard"
+    limit_fitness: bool = True             # Switch that limits gene representations affect on fitness to a magnitude of one
 
 
     # !-- Topology --!
@@ -60,7 +55,7 @@ class Config:
 
     # !-- Evolution --!
     u1: float = 0.1                         # genotype mutation size
-    u2: float = 0.0067                      # interaction mutation size
+    u2: float = 0.067                       # interaction mutation size
     prob_mut_B: float = 0.067
     n_mut_G: int = 1
     n_mut_B: int = 1
@@ -69,7 +64,7 @@ class Config:
     record: bool = True
     record_every: int = 1000
     drift_selection: bool = True            # accept ties as well as strict gains
-    symmetric_interactions: bool = False               # mirror each B mutation to (j, i)
+    symmetric_interactions: bool = False    # mirror each B mutation to (j, i)
     baldwin_effect: bool = True             # PLACEHOLDER: accepted but currently inert
 
 
@@ -85,14 +80,15 @@ class Config:
 
     # !-- Induction --!
     induction: bool = False                     # Toggle induction (inside of the evolutionary algorithm)
-    induction_process: str = "plastic"          # "plastic", "hopfield" or "r-round"
-    energy_gate: str = "or"                     # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", "harsh" or "deterministic"
+    induction_process: str = "r-round"          # Can be "plastic" or "r-round"
+    energy_gate: str = "deterministic"          # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and", "harsh" or "deterministic"
     energy_limit: float = 0.5                   # Maximum amount sigmoid energy needs to achieve when `energy_gate = "harsh"` sigma(-dE/tau)
-    energy_type: str = "standard"               # Can be 'standard' or 'differential'
-    energy_normalise_interactions: bool = False # Normalise the interaction matrix inside of the energy calculations
+    energy_type: str = "differential"           # Can be 'standard' or 'differential'
+    energy_normalise_interactions: bool = True  # Normalise the interaction matrix inside of the energy calculations
+    relative_mutation: bool = True              # Scales the sigmoidal energy relative to the mutation size
     slack_limit: float = 0.01                   # Maximum amount of slack to be given in the randomised scaling of the energy limit boundry inside the plastic selection proccess
     M: int = 100                                # mutation attempts per plastic search
-    c: float = 2.0                              # single-gene mutation size
+    c: float = 1.0                              # single-gene mutation size
     c_tau: float = 1.0                          # tau = c_tau * std(dE) over the pool
     eta: float = 0.01                           # contrastive learning rate for B
     rounds: int = 10                            # R rounds of develop -> plasticity -> induct
@@ -101,7 +97,7 @@ class Config:
     normalise_energy: bool = True               # Rayleigh quotient: direction only
     r_T: int = None                             # redevelopment time after updating
     relax: bool = False                         # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
-    induction_interactions: str = "all"   # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
+    induction_interactions: str = "all"         # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
 
 
 
@@ -268,7 +264,6 @@ def with_mask(cfg: Config, mask: np.ndarray) -> Config:
 
 
 def set_mask(cfg: Config, mask: np.ndarray) -> Config:
-    """Set the mask IN PLACE and return cfg."""
     cfg.mask = mask
 
 
