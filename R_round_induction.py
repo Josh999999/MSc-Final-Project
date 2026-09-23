@@ -71,7 +71,7 @@ def r_round_induction(
             dB = lr * dPP_
 
         B += dB
-
+ 
 
         # Re-Normalise the matrix (after learning)
         if cfg.normalise_interactions:
@@ -80,7 +80,8 @@ def r_round_induction(
         
         # Redevelop the Genotype under the new interaction matrix
         if cfg.relax:
-            P = handle_develop(G, B, cfg, induction = True)
+            # Relaxing the genotype is ordinary development: use T, not r_T.
+            P = handle_develop(G, B, cfg, induction = False)
             F = evaluate_fitness(P, S, cfg)
             outer_curve.append(F)
 

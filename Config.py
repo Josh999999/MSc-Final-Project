@@ -27,8 +27,20 @@ class Config:
     N: int = 8                              # size of the phenotype (number of genes)
     targets: np.ndarray = field(default_factory = lambda: np.array([S1, S2], dtype = float))
     seed: int = DEFAULT_SEED
-    fitness_type: str = "standard"         # Can be "cosine" or "standard"
-    limit_fitness: bool = True             # Switch that limits gene representations affect on fitness to a magnitude of one
+
+    # !-- Deterministic evaluation --!
+    development: str = "watson"
+    bound_phenotype: bool = True            # keep plastic moves inside [-1, 1] too
+
+    # !-- What selection scores --!
+    selection_score: str = "gated"
+    plastic_bonus: float = 0.1
+    inherit_induced: str = "none"
+    B_limit: float = 0.3
+
+    deterministic_induction: bool = True
+    induction_seed: int = DEFAULT_SEED
+    fitness_type: str = "standard"          # Can be "cosine" or "standard"
 
 
     # !-- Topology --!
@@ -55,10 +67,10 @@ class Config:
 
     # !-- Evolution --!
     u1: float = 0.1                         # genotype mutation size
-    u2: float = 0.067                       # interaction mutation size
-    prob_mut_B: float = 0.067
+    u2: float = 0.3                         # interaction mutation size
+    prob_mut_B: float = 0.5
     n_mut_G: int = 1
-    n_mut_B: int = 1
+    n_mut_B: int = 8
     n_generations: int = 200_000
     switch_every: int = 2000
     record: bool = True
@@ -75,7 +87,7 @@ class Config:
     intra: float = 1.0
     inter: float = 0.05
     flip_frac: float = 0.25
-    Y: float = 1.0                          # magnitude (gain) applied to B
+    Y: float = 1.0                           # magnitude (gain) applied to B
 
 
     # !-- Induction --!
@@ -90,13 +102,13 @@ class Config:
     M: int = 100                                # mutation attempts per plastic search
     c: float = 1.0                              # single-gene mutation size
     c_tau: float = 1.0                          # tau = c_tau * std(dE) over the pool
-    eta: float = 0.01                           # contrastive learning rate for B
+    eta: float = 0.5                            # contrastive learning rate for B
     rounds: int = 10                            # R rounds of develop -> plasticity -> induct
     mutation_type: str = "phenotype"            # Can be "single-gene" or "phenotype"
     tau_floor: float = 1e-12                    # guard for a degenerate candidate pool
     normalise_energy: bool = True               # Rayleigh quotient: direction only
     r_T: int = None                             # redevelopment time after updating
-    relax: bool = False                         # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
+    relax: bool = True                          # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
     induction_interactions: str = "all"         # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
 
 
@@ -184,33 +196,6 @@ class Config:
 
 
 
-    def copy(self, **kwargs) -> "Config":
-        """An independent copy, optionally with fields overridden."""
-
-        return replace(self, **kwargs)
-
-
-
-
-    """!---- Decorators for Setting Variables ----!"""
-    @property
-    def baseline_fitness(self) -> float:
-
-        if self.fitness_type == "cosine":
-
-            return 0.0 if self.normalise_fitness else -1.0
-
-        elif self.fitness_type == "standard":
-
-            return 0.0 if self.normalise_fitness else -self.N
-
-        else:
-
-            return 0.0
-
-
-
-
     @property
     def optimal_fitness(self) -> float:
 
@@ -233,14 +218,6 @@ class Config:
     def target(self) -> np.ndarray:
 
         return self.targets[0]
-
-
-
-
-    @property
-    def n_targets(self) -> int:
-
-        return int(self.targets.shape[0])
 
 
 

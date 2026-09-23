@@ -135,6 +135,12 @@ def plastic_search(
  
         # Compute current phenotype mutation
         P_try = compute_mutation(P, cfg, rng)
+
+        if cfg.bound_phenotype:
+            np.clip(P_try, -1.0, 1.0, out = P_try)
+
+        # Apply clipping to keep in range for normalisation
+        P_try = np.clip(P_try, a_min = -1, a_max = 1, dtype = DTYPE)
  
  
         # Calculate the energy differential

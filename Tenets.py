@@ -196,7 +196,6 @@ def fitness_surface(
         "Y": cfg.Y,
         "max_tenet1_error": float(np.max(np.abs(check1))),
         "max_tenet2_error": float(np.max(np.abs(check2))),
-        "config": cfg.copy(),   # snapshot: cfg is mutable and may change after this call
     }
  
  
@@ -266,6 +265,5 @@ def plastic_measure_surface(
         "measure": measure,
         "max_tenet1_error": float(np.max(np.abs(check1))),
         "max_tenet2_error": float(np.max(np.abs(check2))),
-        "config": cfg.copy(),   # snapshot: cfg is mutable and may change after this call
     }
  

@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
         plot_fitness_surface(
             surfaces,
-            saveloc = OUTPUT,
+            save_loc = OUTPUT,
             label_measure = label,
             scale = scale,
             n_seeds = N_SEEDS

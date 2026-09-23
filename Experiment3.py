@@ -60,7 +60,7 @@ if __name__ == "__main__":
  
             plot_measure_surfaces(
                 surfaces,
-                saveloc = OUTPUT,
+                save_loc = OUTPUT,
                 label_measure = label,
                 scale = scale,
                 subtitle = f"energy gate: {gate}",

@@ -127,9 +127,22 @@ def masked_matrix(B: np.ndarray, mask: np.ndarray, inplace: bool = True) -> np.n
 
 def develop(G: np.ndarray, B: np.ndarray, cfg: Config, T: int) -> np.ndarray:
     sigmoid = resolve_sigmoid(cfg.sigmoid)
+    G = np.asarray(G, dtype = DTYPE)
 
-    P = np.asarray(G, dtype = DTYPE).copy()
 
+    if cfg.development == "watson":
+        # G is a persistent input; the sigmoid bounds the output to [-1, 1].
+        P = np.zeros(cfg.N, dtype = DTYPE)
+
+        for _ in range(T):
+            P += cfg.t1 * (sigmoid(B @ P + G) - P)
+
+
+        return P
+
+
+    # "decay": the original form
+    P = G.copy()
 
     for _ in range(T):
         P += cfg.t1 * sigmoid(B @ P) - cfg.t2 * P
@@ -152,11 +165,7 @@ def handle_develop(G: np.ndarray, B: np.ndarray, cfg: Config, induction: bool = 
 
 
 
-def fitness(P: np.ndarray, S: np.ndarray, limit: bool = False, norm: bool = False) -> float:
-    norm = limit and norm
-
-    P = P if not limit else np.clip(P.copy(), -1, 1)
-
+def fitness(P: np.ndarray, S: np.ndarray, norm: bool = False) -> float:
     F = P @ S
 
 
@@ -178,7 +187,7 @@ def evaluate_fitness(P: np.ndarray, S: np.ndarray, cfg: Config) -> float:
 
     elif cfg.fitness_type == "standard":
 
-        return fitness(P, S, cfg.limit_fitness, cfg.normalise_fitness)
+        return fitness(P, S, cfg.normalise_fitness)
 
 
     return P @ S

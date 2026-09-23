@@ -46,8 +46,8 @@ if __name__ == "__main__":
     SPARSITIES = [1, 2, 4, 6, cfg.N - 1]
  
     for K in SPARSITIES:
-        base_K = cfg.copy(K = K)          # copy: each mask is built from its own K
-        mask = sparse_topology(base_K, make_rng(cfg.seed))
+        cfg.set(K = K)         
+        mask = sparse_topology(cfg, make_rng(cfg.seed))
         masks.append(mask)
     
  

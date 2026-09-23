@@ -5,13 +5,15 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
+from GRN import develop
+from Config import Config
  
  
  
  
 def plot_fitness_surface(
         surfaces: list,
-        saveloc: str = "tenet_surface.png",
+        save_loc: str = "tenet_surface.png",
         label_measure: str = "Fitness",
         scale: str = "sequential",
         vmin: float = None,
@@ -78,7 +80,7 @@ def plot_fitness_surface(
  
  
     fig.suptitle(title, fontsize = 11)
-    fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
+    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -86,7 +88,7 @@ def plot_fitness_surface(
  
 def plot_measure_surfaces(
         surfaces: list,
-        saveloc: str = "tenet_measure.png",
+        save_loc: str = "tenet_measure.png",
         label_measure: str = "measure",
         scale: str = "sequential",
         subtitle: str = None,
@@ -210,7 +212,7 @@ def plot_measure_surfaces(
  
  
     fig.suptitle(title, fontsize = 12, y = 1.06)
-    fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
+    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -367,7 +369,7 @@ def plot_trajectories(
         grid: bool = False,
         title: str = None,        
         subtitle: str = None,
-        saveloc: str = "./", 
+        save_loc: str = "./", 
         marker_size: int = 1,
         alpha: float = 1.0,
         moving_average: bool = False,
@@ -504,7 +506,7 @@ def plot_trajectories(
  
  
     fig.tight_layout()
-    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    fig.savefig(save_loc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -512,7 +514,7 @@ def plot_trajectories(
  
 def plot_binary_strip(
         values,
-        saveloc: str = "strip.png",
+        save_loc: str = "strip.png",
         true_colour: str = "#2c7fb8",
         false_colour: str = "#f0f0f0",
         true_label: str = "True",
@@ -600,7 +602,7 @@ def plot_binary_strip(
  
  
     fig.tight_layout()
-    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    fig.savefig(save_loc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -611,7 +613,7 @@ def plot_transfer(
         fitnesses: np.ndarray, 
         transfer_loss: np.ndarray, 
         switches: np.ndarray, 
-        saveloc: str,
+        save_loc: str,
         x: np.ndarray = None
     ):
     switch_gens = np.flatnonzero(np.asarray(switches, dtype = bool))
@@ -650,5 +652,66 @@ def plot_transfer(
     ax_loss.grid(alpha = 0.25)
  
     fig.suptitle("Transfer to a new Target, recorded in-line with NaN padding", fontsize = 11)
-    fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
+    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
+    plt.close(fig)
+
+
+
+
+def show_interaction_heatmap(B: np.array, save_loc: str, title = None):
+    fig, ax = plt.subplots(figsize=(5, 4))
+
+    vmax = np.max(np.abs(B)) or 1.0
+    im = ax.imshow(B, cmap="bone", vmin=-vmax, vmax=vmax)
+    ax.set_title(title)
+    ax.set_xlabel("Gene i")
+    ax.set_ylabel("Gene j")
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    fig.tight_layout()
+    fig.savefig(save_loc, dpi=150)
+    plt.close(fig)
+
+
+
+
+def random_profiles(R: int, N: int, rng: np.random.Generator) -> np.ndarray:
+
+    if N is None: 
+        N = Global.N
+
+    G = rng.uniform(low = -1.0, high = 1.0, size = (R, N))
+
+
+    return G
+
+
+
+def show_phenotypes(
+        B: np.array, 
+        R: int,      
+        cfg: Config,
+        rng: np.random.Generator,
+        save_loc: str, 
+        title = None,   
+    ):
+    phenotypes = []
+    initial_profiles = random_profiles(R = R, N = cfg.N, rng = rng)
+
+    for G in initial_profiles:
+        P = develop(G, B, cfg, T = cfg.T)
+        phenotypes.append(P)
+
+
+    fig, ax = plt.subplots(figsize=(5, 5))
+
+    vmax = np.max(np.abs(phenotypes)) or 1.0
+    im = ax.imshow(phenotypes, cmap="bone", vmin=-vmax, vmax=vmax, aspect="auto")
+    ax.set_title(title)
+    ax.set_xlabel("Genes")
+    ax.set_ylabel("Phenotype samples")
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    fig.tight_layout()
+    fig.savefig(save_loc, dpi=150)
     plt.close(fig)

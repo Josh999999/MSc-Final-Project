@@ -4,7 +4,7 @@ import time
  
  
 """Local Imports"""
-from Config import Config
+from Config import Config, make_rng
 from Induction import handle_induction
 from GRN import DTYPE, masked_matrix, handle_develop, evaluate_fitness, mutate_profile, fitness, _cos
 from Analysis import check_convergence
@@ -20,7 +20,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
  
  
     S = cfg.targets
-    M = cfg.n_targets
+    M = len(cfg.targets)
  
     B = masked_matrix(B, cfg.mask)
     B_flat = B.reshape(-1)                  # view: mutated in place
@@ -86,18 +86,63 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
  
     
     """ Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison """
+    def induction_rng():
+        """Fixed stream under deterministic_induction, else the evolving one."""
+ 
+        if cfg.deterministic_induction:
+ 
+            return make_rng(cfg.induction_seed)
+ 
+ 
+        return rng
+ 
+ 
+
+    def _undo_B(B_flat, undo):
+
+        if undo is None:
+
+            return
+
+        idx, mirror, deltas, mdeltas = undo
+        np.add.at(B_flat, idx, -deltas)
+
+        if mirror is not None:
+            np.add.at(B_flat, mirror, -mdeltas)
+
+
+
+    def _redo_B(B_flat, undo):
+
+        if undo is None:
+
+            return
+
+        idx, mirror, deltas, mdeltas = undo
+        np.add.at(B_flat, idx, deltas)
+
+        if mirror is not None:
+            np.add.at(B_flat, mirror, mdeltas)
+
+
+
     def induction_history(cfg: Config, history: dict, record: bool = True, record_now: bool = True) -> tuple[float, np.ndarray]:    
-        F_mut = history["auc_inner"]
+        auc = float(history["auc_inner"])
+        native = float(np.asarray(history["outer_curve"])[0]) if "outer_curve" in history else float(np.asarray(history["curve"])[0])
+        outer = float(history["auc_outer"]) if "auc_outer" in history else auc
+
+        if cfg.selection_score == "auc":
+            F_mut = auc
+
+        elif cfg.selection_score == "native":
+            F_mut = native
+
+        else:   
+            F_mut = native + cfg.plastic_bonus * (outer - native)
+
         B_ind = history["B"]
         Final_AUC = 0
  
- 
-        # `record` is False when this is the incumbent being re-scored (start of
-        # run, or after a target switch).  Those are not generations, so logging
-        # them here would add extra entries and push every induction series out
-        # of step with the generation index.
-        # `record`     : False when re-scoring the incumbent (not a generation)
-        # `record_now` : False on generations between subsample points
         if cfg.record and record and record_now:
  
             if cfg.induction_process == "r-round":
@@ -134,7 +179,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         Final_AUC = 0
     
         if cfg.induction:
-            history = handle_induction(B, P, G, cfg, rng, S, limit_return = not cfg.record, AUC = AUC)       
+            history = handle_induction(B, P, G, cfg, induction_rng(), S, limit_return = not cfg.record, AUC = -1)       
             F_mut, B_ind, Final_AUC = induction_history(cfg, history, record = False)
  
         else:
@@ -144,9 +189,6 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         # Re-assign the interaction matrix with the induction vairant if the Baldwin effect is not active
         if cfg.induction and not cfg.baldwin_effect:
             B[...] = B_ind
- 
-        
- 
  
  
         return F_mut, Final_AUC
@@ -187,6 +229,10 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             t = rng.integers(0, n_allowed, size = cfg.n_mut_B)
             deltas = rng.uniform(low = -cfg.u2, high = cfg.u2, size = cfg.n_mut_B)
             idx = allowed[t]
+
+            # Bound the RESULT by shrinking the delta, so that reverting with
+            # -deltas is exact (clipping after the fact would break the undo).
+            deltas = np.clip(B_flat[idx] + deltas, -cfg.B_limit, cfg.B_limit) - B_flat[idx]
             np.add.at(B_flat, idx, deltas)
  
  
@@ -226,14 +272,37 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         # !-- Perform the Induction Process -- !
  
         # Handle Induction
-        if cfg.induction:
- 
-            # Compute induction
-            history = handle_induction(B, P_mut, G, cfg, rng, S[ei], limit_return = not cfg.record, AUC = Final_AUC)        
+        B_ind = None
+        F_cmp = F                                   # what the challenger is compared against
+
+        # "gated": induction only runs on generations where B actually mutated.
+        # G-only mutations are judged on native fitness (full gradient on G);
+        # B-mutated generations are judged by the inductive score, with the
+        # incumbent re-scored the same way so the comparison is like for like.
+        run_induction = cfg.induction and (cfg.selection_score != "gated" or undo is not None)
+
+        if run_induction:
+
+            if cfg.selection_score == "gated":
+                # incumbent under the SAME judge, on the pre-mutation matrix
+                _undo_B(B_flat, undo)
+                inc = handle_induction(B, P, G, cfg, induction_rng(), S[ei], limit_return = not cfg.record, AUC = -1)
+                F_cmp, _, _ = induction_history(cfg, inc, record = False)
+                _redo_B(B_flat, undo)
+
+            # Compute induction on the challenger
+            history = handle_induction(B, P_mut, G, cfg, induction_rng(), S[ei], limit_return = not cfg.record, AUC = -1)        
             F_mut, B_ind, Final_AUC = induction_history(cfg, history, record_now = record_now)
- 
+
         else:
             F_mut = evaluate_fitness(P_mut, S[ei], cfg)
+
+
+            if cfg.induction and cfg.record and record_now:
+                # keep the induction series aligned even on gated-off generations
+                native_fitness.append(F_mut); plastic_fitness.append(F_mut)
+                F_change_inner.append(0.0); F_change_outer.append(0.0)
+                AUC_inner.append(F_mut); AUC_outer.append(F_mut)
  
  
  
@@ -241,14 +310,19 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
         # !-- Perform the Selection Process -- !
  
         # Compute acceptance boundary
-        accept = (F_mut >= F) if cfg.drift_selection else (F_mut > F)
+        accept = (F_mut >= F_cmp) if cfg.drift_selection else (F_mut > F_cmp)
         selected = False
  
         if accept:
  
-            # Re-assign the interaction matrix with the induction vairant if the Baldwin effect is not active
-            if cfg.induction and not cfg.baldwin_effect:
-                B[...] = B_ind
+            # What the accepted challenger inherits from its induction run.
+            if B_ind is not None and (cfg.inherit_induced != "none" or not cfg.baldwin_effect):
+
+                if cfg.inherit_induced == "exclusive":
+                    B[~cfg.mask] = np.asarray(B_ind, dtype = DTYPE)[~cfg.mask]
+
+                else:
+                    B[...] = B_ind
  
  
             G, P, F = G_mut, P_mut, F_mut
@@ -331,8 +405,8 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
  
  
         # Final analysis of the fitness
-        final_fitness_uncapped = fitness(P, S[ei], limit = False, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S[ei], norm = cfg.normalise_fitness)
-        final_fitness_capped = fitness(P, S[ei], limit = True, norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S[ei], norm = cfg.normalise_fitness)
+        final_fitness_uncapped = fitness(P, S[ei], norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S[ei], norm = cfg.normalise_fitness)
+        final_fitness_capped = fitness(np.clip(P, -1.0, 1.0), S[ei], norm = cfg.normalise_fitness) if cfg.fitness_type == "standard" else _cos(P, S[ei], norm = cfg.normalise_fitness)
  
  
  
@@ -410,91 +484,3 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             "F_final_outer": F_final_outer,
         }
     )
- 
- 
-
-
-def compare_results(induction_results: dict, standard_results: dict) -> dict:
-    comparisons = dict()
-    n = len(induction_results["recorded_gens"])
-    m = len(induction_results["selections"])
-
-    # Here we compare the induction results with the results of the standard evolutionary algorithm
-    n = len(induction_results["fitnesses"])
-    comparisons["greater_fitness_curve"] = np.asarray(induction_results["fitnesses"] > standard_results["fitnesses"], dtype = int).sum() / n
-    comparisons["equal_fitness_curve"] = np.asarray(induction_results["fitnesses"] == standard_results["fitnesses"], dtype = int).sum() / n
-    comparisons["less_fitness_curve"] = np.asarray(induction_results["fitnesses"] < standard_results["fitnesses"], dtype = int).sum() / n
-    
-    n = len(induction_results["selections"])
-    comparisons["only_selection_curve"] = np.asarray(induction_results["selections"] and not standard_results["selections"], dtype = int).sum() / n
-    comparisons["both_selection_curve"] = np.asarray(induction_results["selections"] and standard_results["selections"], dtype = int).sum() / n
-    comparisons["other_selection_curve"] = np.asarray(not induction_results["selections"] and standard_results["selections"], dtype = int).sum() / n
-    comparisons["none_selection_curve"] = np.asarray(not induction_results["selections"] and not standard_results["selections"], dtype = int).sum() / n
-
-    n = len(induction_results["converged"])
-    comparisons["only_converged_curve"] = np.asarray(induction_results["converged"] and not standard_results["converged"], dtype = int).sum() / n
-    comparisons["both_converged_curve"] = np.asarray(induction_results["converged"] and standard_results["converged"], dtype = int).sum() / n
-    comparisons["other_converged_curve"] = np.asarray(not induction_results["converged"] and standard_results["converged"], dtype = int).sum() / n
-    comparisons["none_converged_curve"] = np.asarray(not induction_results["converged"] and not standard_results["converged"], dtype = int).sum() / n
-
-
-
- 
-def compare_results_str(induction_results: dict, standard_results: dict) -> dict:
-    comparisons = dict()
- 
-    # Here we compare the induction results with the results of the standard evolutionary algorithm
-    comparisons["first_initial_convergence"] = int(induction_results["conv_first_gen"] < standard_results["conv_first_gen"])
-    comparisons["same_initial_convergence"] = int(induction_results["conv_first_gen"] == standard_results["conv_first_gen"])
-    comparisons["last_initial_convergence"] = int(induction_results["conv_first_gen"] > standard_results["conv_first_gen"])
-    
-    comparisons["first_stick_convergence"] = int(induction_results["conv_stick_gen"] < standard_results["conv_stick_gen"])
-    comparisons["same_stick_convergence"] = int(induction_results["conv_stick_gen"] == standard_results["conv_stick_gen"])
-    comparisons["last_stick_convergence"] = int(induction_results["conv_stick_gen"] > standard_results["conconv_stick_gen_first_gen"])
- 
-    comparisons["only_first_convergence_stuck"] = int(induction_results["conv_fgs"] and not standard_results["conv_fgs"])
-    comparisons["both_first_convergence_stuck"] = int(induction_results["conv_fgs"] and standard_results["conv_fgs"])
-    comparisons["other_first_convergence_stuck"] = int(not induction_results["conv_fgs"] and standard_results["conv_fgs"])
-    comparisons["none_first_convergence_stuck"] = int(not induction_results["conv_fgs"] and not standard_results["conv_fgs"])
-
-    comparisons["greater_fitness"] = int(induction_results["F"] > standard_results["F"])
-    comparisons["equal_fitness"] = int(induction_results["F"] == standard_results["F"])
-    comparisons["less_fitness"] = int(induction_results["F"] < standard_results["F"])
-
-
-
- 
-def average_dictionaries(dictionaries: list[dict[np.ndarray | DTYPE]]) -> dict[np.ndarray]:
-    keys = list(dictionaries[0].keys())
-    n = len(keys)
-    A = [0.0] * n
-    average_items = np.asarray(A, dtype = DTYPE)
- 
-    for item in dictionaries:
-        average_items += np.asarray(item.values(), dtype = DTYPE)
- 
-    average_items /= n
- 
-    average_dictionary = dict(zip(keys, average_items))
- 
- 
-    return average_dictionary
-
-
-
-
-def average_dictionaries_str(dictionaries: list[dict[np.ndarray | DTYPE]]) -> dict[np.ndarray]:
-    keys = list(dictionaries[0].keys())
-    n = len(keys)
-    A = [0.0] * n
-    average_items = np.asarray(A, dtype = DTYPE)
- 
-    for item in dictionaries:
-        average_items += np.asarray(item.values(), dtype = DTYPE)
- 
-    average_items = str(average_items) + f" / {n}"
- 
-    average_dictionary = dict(zip(keys, average_items))
- 
- 
-    return average_dictionary
