@@ -185,6 +185,8 @@ if __name__ == "__main__":
     def _experiment9(title: str, img_name: str, only_avgs: bool = False):
 
         for name, overrides in GRID:
+            name: str = name.strip()
+            name = " ".join([st.capitalize() for st in name.split(' ')])
             control_overrides = {k: v for k, v in overrides.items() if k == "_sparse"}
             seed_rows = []
 

@@ -29,20 +29,6 @@ if __name__ == "__main__":
         targets = S1,
         induction = True,
     )
- 
-    COLUMN_TITLES = (
-        "Magnitude\n(Y)",
-        "Energy\ngate",
-        "Acceptance\nrate",
-        "AUC",
-        "F\nchange",
-        "Align\nchange",
-        "Accepted\navg. align",
-        "Accepted\nstd. align",
-    )
- 
-    # Generate the starting profile (Constant used for all interaction matricies)
-    G = make_rng(cfg.seed).uniform(low = -1, high = 1, size = cfg.N)
     
  
  
