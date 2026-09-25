@@ -71,13 +71,13 @@ def r_round_induction(
             dB = lr * dPP_
 
         B += dB
- 
+
 
         # Re-Normalise the matrix (after learning)
         if cfg.normalise_interactions:
             B = normalise_interactions(B, cfg)
 
-        
+
         # Redevelop the Genotype under the new interaction matrix
         if cfg.relax:
             # Relaxing the genotype is ordinary development: use T, not r_T.
@@ -94,7 +94,7 @@ def r_round_induction(
         # Track alignment of the Phenotypes induction produces
         A = phenotype_alignment(P, B, cfg)
         align_curve.append(A)
-        
+
 
     inner_curve = np.asarray(inner_curve, dtype = DTYPE)
     outer_curve = np.asarray(outer_curve, dtype = DTYPE)

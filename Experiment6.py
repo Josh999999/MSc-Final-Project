@@ -1,123 +1,148 @@
 """External Imports (Libraries and APIs)"""
-import os  
+import os
 import numpy as np
  
  
 """Local Imports"""
-from Config import Config, make_rng, with_mask, ENERGY_GATES
+from Config import Config, make_rng, with_mask
 from Data import S1
 from Interactions import (appropriate_interactions, noisy_appropriate_interactions,
                           random_interactions, modular_interactions,
                           modular_appropriate_interactions)
-from GRN import sparse_topology, diag_mask
-from Plastic_Induction import plastic_search_return_wrapper
-from GRN import handle_develop
-from Plotting import create_search_table
-
-
-
-
-FIGURES_OUTPUT = "Experiment9"
-
-
-
-
+from GRN import sparse_topology, diag_mask, handle_develop
+from R_round_induction import r_round_induction_return_wrapper
+from Plotting import plot_round_curves, plot_matrices, create_search_table, plot_counts
+from Tenets import ideal_hebbian
+ 
+ 
+ 
+ 
+FIGURES_OUTPUT = "Experiment6"
+ 
+SEEDS  = 5      # independent runs per interaction type
+ROUNDS = 5      # R: rounds of induction per run
+ 
+ 
+ 
+ 
 if __name__ == "__main__":
-        # One config, constructed and validated up front. No ordering hazard: targets, N and the mask are checked against each other in __post_init__.
+ 
+    # Standard induction settings: the Config defaults, with R fixed at ROUNDS.
     cfg = Config(
         N = len(S1),
         targets = S1,
         induction = True,
+        induction_process = "r-round",
+        rounds = ROUNDS,
     )
-    
  
  
  
-    # Replicable functionality for running the experiment
-    def _experiment2(cfg: Config, n_seeds: int = 8):
  
-        # Save the search data
-        search_data = []
- 
- 
-        # Run the Plastic search for a sweep of magnitudes and energy gate protocols
-        for Y in [0.5, 1.0, 2.0, 6.0]:
-            BY = B * Y
-            
-            # Develop the Phenotype as the cfg for the plastic search
-            P = handle_develop(G, BY, cfg, induction = False)
- 
-            cfg = cfg.set(Y = Y)
+    def _experiment6(cfg: Config, B: np.ndarray, interaction_type: str, n_seeds: int = SEEDS) -> list:
+        curves, induced, keys = [], [], []
+        round_aucs = []                       # AUC of each round's walk, per seed
  
  
-            for gate in ENERGY_GATES:
+        for seed in range(n_seeds):
+            rng = make_rng(cfg.seed + seed)
  
-                # Generates three new rows in the table for each magntiude Y
-                row_data = [Y, gate]
-                row_measurements = np.asarray([0] * (len(COLUMN_TITLES) - 2), dtype = float)
-
-                # Reset the Energy gate
-                cfg.energy_gate = gate
-
-
-                for i in range(0, n_seeds):
+            # A fresh genotype per seed; B is the same starting matrix for all of them, so the seeds differ only in genotype and plastic draws.
+            G = rng.uniform(low = -1.0, high = 1.0, size = cfg.N)
+            P = handle_develop(G, B, cfg, induction = False)
  
-                    # Perform the plastic search - This search doesn't alter B
-                    # Fresh stream per gate, so the gates are compared on identical draws.
-                    history = plastic_search_return_wrapper(B = BY, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = False)    
-    
-                    # Save the search data for the current row
-                    data = []
-                    data.append(history['acceptance_rate']) # Convert to a percentage in a string
-                    data.append(history["auc_inner"])
-                    data.append(history["F_change"])
-                    data.append(history["align_change"])
-                    data.append(history["avg_accept_A"])
-                    data.append(history["std_accept_A"])
-
-                    row_measurements += np.asarray(data, dtype = float)
-
-
-                # Handle Inserting the measurements into the row as data
-
-                # Take the mean of measurements accumulated across seeds
-                row_measurements = row_measurements / n_seeds
-
-                # Configure the acceptance rate for percentage display
-                acceptance_rate = row_measurements[0]
-                row_measurements = list(row_measurements)
-                row_measurements[0] = f"{acceptance_rate * 100:.1f}%"
-
-                row_data = row_data + row_measurements
+            # !-- Induction: R rounds of plasticity + contrastive update --!
+            history = r_round_induction_return_wrapper(
+                B = B.copy(), P = P, G = G, cfg = cfg, rng = rng,
+                S = cfg.target, limit_return = False, AUC = -1
+            )
+ 
+            B_induced = np.asarray(history["B"], dtype = float)
 
  
-                # Collect the row data
-                search_data.append(row_data) 
+            # !-- The plastic curve INSIDE each round --!
+            curves.append([np.asarray(c, dtype = float) for c in history["round_curves"]])
+            round_aucs.append([float(np.mean(c)) for c in history["round_curves"]])
+            induced.append(B_induced)
+            keys.append(f"seed {seed}")
+ 
+            starts = [round(float(c[0]), 3) for c in history["round_curves"]]
  
  
-        # Display the results of the experiment and analysis in a table
-        create_search_table(
-            column_tites = COLUMN_TITLES, 
-            row_results = search_data, 
-            save_loc = OUTPUT, 
-            title = f"Effect of energy gates in the plastic search under {interaction_type}"
+        safe = interaction_type.replace(" ", "_")
+
+ 
+        # !-- The plastic walk within each round, one panel per seed --!
+        plot_round_curves(
+            round_curves = curves,
+            keys = keys,
+            separate = "grid",
+            saveloc = os.path.join(FIGURES_OUTPUT, f"plastic_curve_{safe}.png"),
+            title = f"Plastic search within each of the {ROUNDS} rounds of induction",
+            subtitle = interaction_type,
+            x_label = "Plastic step within the round",
+            y_label = "Fitness",
+        )
+
+
+        H = ideal_hebbian(cfg)
+
+ 
+        # !-- The induced matrices, with the ideal and the starting matrix --!
+        plot_matrices(
+            matrices = [H, B] + induced,
+            keys = ["ideal Hebbian S(x)S", "initial B"] + keys,
+            saveloc = os.path.join(FIGURES_OUTPUT, f"induced_matrix_{safe}.png"),
+            title = f"Interaction matrix produced by {ROUNDS} rounds of induction",
+            subtitle = f"{interaction_type}, shared colour scale",
+            colour_label = "interaction weight",
+        )
+
+ 
+        # !-- What induction changed: induced - initial, per seed --!
+        plot_matrices(
+            matrices = [B_ind - B for B_ind in induced],
+            keys = keys,
+            saveloc = os.path.join(FIGURES_OUTPUT, f"induced_change_{safe}.png"),
+            title = f"Change made by {ROUNDS} rounds of induction (induced \u2212 initial)",
+            subtitle = f"{interaction_type}, shared colour scale",
+            colour_label = "change in interaction weight",
+            reference = H,
+            reference_key = "ideal Hebbian S(x)S",
         )
  
  
+        # !-- The row for the cross-builder AUC summary --!
+        aucs = np.asarray(round_aucs, dtype = float)       
+        first, last = aucs[:, 0], aucs[:, -1]
+        diff = last - first
+        improved = int(np.sum(diff > 0))
  
  
-    # !-- Sweep the interaction builders --! 
+        return [
+            interaction_type,
+            float(first.mean()),
+            float(last.mean()),
+            float(diff.mean()),
+            float(diff.std()),
+            f"{improved} / {n_seeds}"
+        ], improved
+ 
+ 
+ 
+ 
+    # !-- Sweep the interaction builders --!
     def _dense(build):
  
         def wrapped(cfg, rng):
             cfg = with_mask(cfg, diag_mask(cfg))
-
+ 
  
             return build(cfg, rng), cfg
  
  
-        return wrapped 
-
+        return wrapped
+ 
  
  
  
@@ -133,7 +158,7 @@ if __name__ == "__main__":
  
         return wrapped
  
-
+ 
  
  
     # Appropriate / inappropriate crossed with dense, modular and sparse topologies
@@ -186,15 +211,63 @@ if __name__ == "__main__":
     os.makedirs(FIGURES_OUTPUT or ".", exist_ok = True)
  
  
+    summary_rows = []
+    improved_counts = []
+ 
+ 
     for interaction_type, build in BUILDERS:
  
         # Same seed for every builder so the comparison is like for like.
         B, run_cfg = build(cfg, make_rng(cfg.seed))
  
-        OUTPUT = os.path.join(FIGURES_OUTPUT or ".",
-                              f"plastic_search_table_{interaction_type.replace(' ', '_')}.png")
- 
         print(f"running: {interaction_type}")
-        _experiment2(run_cfg)
-        print(f"  wrote {OUTPUT}")
+        row, improved = _experiment6(run_cfg, B, interaction_type)
+        summary_rows.append(row)
+        improved_counts.append((interaction_type, improved))
+        print(f"  wrote plastic_curve_ and induced_matrix_ for {interaction_type}")
+ 
+ 
+    # !-- A final row: the average of each column across every interaction type --!
+    # The seed counts are summed rather than averaged, since "improved" is a
+    # count of runs; everything else is a mean over the builders.
+    numeric = np.asarray([row[1:5] for row in summary_rows], dtype = float)
+    total_improved = sum(n for _, n in improved_counts)
+ 
+    summary_rows.append([
+        f"average of {len(summary_rows)} types",
+        *[float(v) for v in numeric.mean(axis = 0)],
+        f"{total_improved} / {len(improved_counts) * SEEDS}",
+    ])
+ 
+ 
+    # !-- Across every interaction type: did the rounds improve the walk? --!
+    create_search_table(
+        column_tites = ["Interaction type",
+                        f"AUC round 1",
+                        f"AUC round {ROUNDS}",
+                        f"Mean difference\n(round {ROUNDS} \u2212 round 1)",
+                        "Std",
+                        f"Seeds improved\n(round {ROUNDS} > round 1)"],
+        row_results = summary_rows,
+        save_loc = os.path.join(FIGURES_OUTPUT, "round_auc_table.png"),
+        title = f"Plastic AUC across {ROUNDS} rounds of induction, by starting interaction matrix "
+                f"(mean \u00b1 sd over {SEEDS} seeds)",
+        sig = 4,
+    )
+ 
+    print(f"  wrote {os.path.join(FIGURES_OUTPUT, 'round_auc_table.png')}")
+ 
+ 
+    # !-- How many seeds improved, per interaction type --!
+    plot_counts(
+        labels = [name for name, _ in improved_counts],
+        counts = [n for _, n in improved_counts],
+        total = SEEDS,
+        saveloc = os.path.join(FIGURES_OUTPUT, "round_auc_improved.png"),
+        title = f"Seeds whose round {ROUNDS} plastic AUC exceeded round 1",
+        subtitle = f"out of {SEEDS} seeds per interaction type",
+        y_label = "seeds improved",
+    )
+ 
+    print(f"  wrote {os.path.join(FIGURES_OUTPUT, 'round_auc_improved.png')}")
  

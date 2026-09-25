@@ -1,19 +1,18 @@
 """External Imports (Libraries and APIs)"""
+import os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
-from GRN import develop
-from Config import Config
  
  
  
- 
+
 def plot_fitness_surface(
         surfaces: list,
-        save_loc: str = "tenet_surface.png",
+        saveloc: str = "tenet_surface.png",
         label_measure: str = "Fitness",
         scale: str = "sequential",
         vmin: float = None,
@@ -80,7 +79,7 @@ def plot_fitness_surface(
  
  
     fig.suptitle(title, fontsize = 11)
-    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
+    fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -88,7 +87,7 @@ def plot_fitness_surface(
  
 def plot_measure_surfaces(
         surfaces: list,
-        save_loc: str = "tenet_measure.png",
+        saveloc: str = "tenet_measure.png",
         label_measure: str = "measure",
         scale: str = "sequential",
         subtitle: str = None,
@@ -212,7 +211,7 @@ def plot_measure_surfaces(
  
  
     fig.suptitle(title, fontsize = 12, y = 1.06)
-    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
+    fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -369,7 +368,7 @@ def plot_trajectories(
         grid: bool = False,
         title: str = None,        
         subtitle: str = None,
-        save_loc: str = "./", 
+        saveloc: str = "./", 
         marker_size: int = 1,
         alpha: float = 1.0,
         moving_average: bool = False,
@@ -506,7 +505,7 @@ def plot_trajectories(
  
  
     fig.tight_layout()
-    fig.savefig(save_loc, dpi = dpi, bbox_inches = "tight")
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -514,7 +513,7 @@ def plot_trajectories(
  
 def plot_binary_strip(
         values,
-        save_loc: str = "strip.png",
+        saveloc: str = "strip.png",
         true_colour: str = "#2c7fb8",
         false_colour: str = "#f0f0f0",
         true_label: str = "True",
@@ -602,7 +601,7 @@ def plot_binary_strip(
  
  
     fig.tight_layout()
-    fig.savefig(save_loc, dpi = dpi, bbox_inches = "tight")
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
  
  
@@ -613,7 +612,7 @@ def plot_transfer(
         fitnesses: np.ndarray, 
         transfer_loss: np.ndarray, 
         switches: np.ndarray, 
-        save_loc: str,
+        saveloc: str,
         x: np.ndarray = None
     ):
     switch_gens = np.flatnonzero(np.asarray(switches, dtype = bool))
@@ -652,66 +651,303 @@ def plot_transfer(
     ax_loss.grid(alpha = 0.25)
  
     fig.suptitle("Transfer to a new Target, recorded in-line with NaN padding", fontsize = 11)
-    fig.savefig(save_loc, dpi = 150, bbox_inches = "tight")
+    fig.savefig(saveloc, dpi = 150, bbox_inches = "tight")
     plt.close(fig)
-
-
-
-
-def show_interaction_heatmap(B: np.array, save_loc: str, title = None):
-    fig, ax = plt.subplots(figsize=(5, 4))
-
-    vmax = np.max(np.abs(B)) or 1.0
-    im = ax.imshow(B, cmap="bone", vmin=-vmax, vmax=vmax)
-    ax.set_title(title)
-    ax.set_xlabel("Gene i")
-    ax.set_ylabel("Gene j")
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-
-    fig.tight_layout()
-    fig.savefig(save_loc, dpi=150)
-    plt.close(fig)
-
-
-
-
-def random_profiles(R: int, N: int, rng: np.random.Generator) -> np.ndarray:
-
-    if N is None: 
-        N = Global.N
-
-    G = rng.uniform(low = -1.0, high = 1.0, size = (R, N))
-
-
-    return G
-
-
-
-def show_phenotypes(
-        B: np.array, 
-        R: int,      
-        cfg: Config,
-        rng: np.random.Generator,
-        save_loc: str, 
-        title = None,   
+ 
+ 
+ 
+def plot_matrices(
+        matrices: list,
+        keys: list = None,
+        saveloc: str = "matrices.png",
+        title: str = None,
+        subtitle: str = None,
+        cmap: str = "RdBu_r",
+        symmetric: bool = True,
+        colour_label: str = "weight",
+        reference: np.ndarray = None,
+        reference_key: str = "reference",
+        figsize_per: tuple = (3.2, 3.4),
+        dpi: int = 150
     ):
-    phenotypes = []
-    initial_profiles = random_profiles(R = R, N = cfg.N, rng = rng)
-
-    for G in initial_profiles:
-        P = develop(G, B, cfg, T = cfg.T)
-        phenotypes.append(P)
-
-
-    fig, ax = plt.subplots(figsize=(5, 5))
-
-    vmax = np.max(np.abs(phenotypes)) or 1.0
-    im = ax.imshow(phenotypes, cmap="bone", vmin=-vmax, vmax=vmax, aspect="auto")
-    ax.set_title(title)
-    ax.set_xlabel("Genes")
-    ax.set_ylabel("Phenotype samples")
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-
-    fig.tight_layout()
-    fig.savefig(save_loc, dpi=150)
+    """
+    Heatmaps of one or more matrices side by side, sharing a colour scale.
+ 
+    `symmetric` centres the scale on zero (vmin = -m, vmax = +m), which is what
+    an interaction matrix wants: red for excitation, blue for inhibition, white
+    for no connection.  Set it False for non-negative quantities.
+ 
+    `reference` draws one extra panel FIRST on its own colour scale -- for a
+    figure of differences, where the reference is a matrix rather than a
+    difference and sharing the scale would distort both.
+    """
+    mats = [np.asarray(m, dtype = float) for m in matrices]
+    n = len(mats)
+    keys = keys if keys is not None else [f"{i}" for i in range(n)]
+ 
+    allv = np.concatenate([m.ravel() for m in mats])
+ 
+ 
+    if symmetric:
+        extent = float(np.nanmax(np.abs(allv))) or 1.0
+        vmin, vmax = -extent, extent
+ 
+    else:
+        vmin, vmax = float(np.nanmin(allv)), float(np.nanmax(allv))
+ 
+ 
+    n_panels = n + (1 if reference is not None else 0)
+    fig, axes = plt.subplots(1, n_panels, figsize = (figsize_per[0] * n_panels, figsize_per[1]), squeeze = False)
+    panels = list(axes[0])
+ 
+ 
+    if reference is not None:
+        ref = np.asarray(reference, dtype = float)
+        r = float(np.nanmax(np.abs(ref))) or 1.0
+        ax0 = panels.pop(0)
+        im_ref = ax0.imshow(ref, cmap = cmap, vmin = -r, vmax = r, interpolation = "nearest")
+        ax0.set_title(str(reference_key), fontsize = 9)
+        ax0.set_xticks([]); ax0.set_yticks([])
+        fig.colorbar(im_ref, ax = ax0, fraction = 0.046, pad = 0.04)
+ 
+ 
+    for ax, m, key in zip(panels, mats, keys):
+        im = ax.imshow(m, cmap = cmap, vmin = vmin, vmax = vmax, interpolation = "nearest")
+        ax.set_title(str(key), fontsize = 9)
+        ax.set_xticks([]); ax.set_yticks([])
+ 
+ 
+    fig.colorbar(im, ax = panels, fraction = 0.025, pad = 0.02, label = colour_label)
+ 
+    full = title or ""
+ 
+ 
+    if subtitle:
+        full = f"{full}\n{subtitle}" if full else subtitle
+ 
+ 
+    if full:
+        fig.suptitle(full, fontsize = 11)
+ 
+ 
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
+ 
+ 
+ 
+ 
+def plot_round_curves(
+        round_curves: list,
+        keys: list = None,
+        saveloc: str = "round_curves.png",
+        separate: str = None,
+        title: str = None,
+        subtitle: str = None,
+        x_label: str = "step",
+        y_label: str = "fitness",
+        cmap: str = "viridis",
+        figsize_per: tuple = (3.6, 3.6),
+        share_y: bool = True,
+        dpi: int = 150
+    ):
+    """
+    One panel per run, and within each panel one line per round.
+ 
+    `round_curves` is a list (runs) of lists (rounds) of 1-D curves.  Rounds
+    are coloured light to dark, so a process that is learning shows each round
+    starting higher than the one before it.
+ 
+    `separate` splits the figure into individual files instead of panels:
+        None     one figure, one panel per run (the default)
+        "grid"   one figure, one ROW per run and one column per round
+        "run"    one figure per run: a ROW of panels, one per round
+        "curve"  one figure per (run, round) -- a single curve each
+    `saveloc` is then used as a stem: "<stem>_seed0.png", "<stem>_seed0_round1.png".
+    """
+    colours = plt.get_cmap(cmap)
+ 
+    if separate == "grid":
+        # rows = runs, columns = rounds
+        n_runs = len(round_curves)
+        n_rounds = max(len(c) for c in round_curves)
+        keys = keys if keys is not None else [f"{i}" for i in range(n_runs)]
+ 
+        fig, axes = plt.subplots(n_runs, n_rounds, squeeze = False, sharey = share_y, sharex = True,
+                                 figsize = (figsize_per[0] * n_rounds, figsize_per[1] * n_runs))
+ 
+ 
+        for row, (curves, key) in enumerate(zip(round_curves, keys)):
+ 
+            for col in range(n_rounds):
+                ax = axes[row][col]
+ 
+ 
+                if col < len(curves):
+                    c = np.asarray(curves[col], dtype = float)
+                    ax.plot(np.arange(c.size), c, lw = 1.4,
+                            color = colours(0.15 + 0.75 * col / max(1, n_rounds - 1)))
+ 
+                else:
+                    ax.axis("off"); continue
+ 
+ 
+                ax.grid(alpha = 0.25, linewidth = 0.6)
+ 
+ 
+                if row == 0:
+                    ax.set_title(f"round {col + 1}", fontsize = 10)
+ 
+ 
+                if col == 0:
+                    ax.set_ylabel(f"{key}\n{y_label}", fontsize = 9)
+ 
+ 
+                if row == n_runs - 1:
+                    ax.set_xlabel(x_label)
+ 
+ 
+        full = title or ""
+ 
+ 
+        if subtitle:
+            full = f"{full}\n{subtitle}" if full else subtitle
+ 
+ 
+        if full:
+            fig.suptitle(full, fontsize = 12)
+ 
+ 
+        fig.tight_layout()
+        fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+        plt.close(fig)
+ 
+ 
+        return
+ 
+ 
+    if separate in ("run", "curve"):
+        stem, ext = os.path.splitext(saveloc)
+        ext = ext or ".png"
+        keys = keys if keys is not None else [f"{i}" for i in range(len(round_curves))]
+ 
+ 
+        for curves, key in zip(round_curves, keys):
+            tag = str(key).replace(" ", "")
+ 
+ 
+            if separate == "run":
+                # each ROUND becomes its own panel, so one seed gives a row of
+                # R plots read left to right
+                plot_round_curves([[c] for c in curves],
+                                  [f"round {i + 1}" for i in range(len(curves))],
+                                  f"{stem}_{tag}{ext}", None,
+                                  title, f"{subtitle} \u2014 {key}" if subtitle else str(key),
+                                  x_label, y_label, cmap, figsize_per, share_y, dpi)
+ 
+            else:
+ 
+                for i, c in enumerate(curves):
+                    plot_round_curves([[c]], [f"{key}, round {i + 1}"],
+                                      f"{stem}_{tag}_round{i + 1}{ext}", None,
+                                      title, subtitle, x_label, y_label, cmap,
+                                      figsize_per, share_y, dpi)
+ 
+ 
+        return
+ 
+    n = len(round_curves)
+    keys = keys if keys is not None else [f"{i}" for i in range(n)]
+ 
+    fig, axes = plt.subplots(1, n, figsize = (figsize_per[0] * n, figsize_per[1]),
+                             squeeze = False, sharey = share_y)
+ 
+ 
+    for ax, curves, key in zip(axes[0], round_curves, keys):
+        r = max(1, len(curves))
+ 
+        for i, c in enumerate(curves):
+            c = np.asarray(c, dtype = float)
+            ax.plot(np.arange(c.size), c, lw = 1.4,
+                    color = colours(0.15 + 0.75 * i / max(1, r - 1)),
+                    label = f"round {i + 1}")
+ 
+ 
+        ax.set_title(str(key), fontsize = 10)
+        ax.set_xlabel(x_label)
+        ax.grid(alpha = 0.25, linewidth = 0.6)
+ 
+ 
+        if ax is axes[0][0]:
+            ax.set_ylabel(y_label)
+ 
+            if r > 1:                       # a one-curve panel needs no legend
+                ax.legend(frameon = False, fontsize = 8)
+ 
+ 
+    full = title or ""
+ 
+ 
+    if subtitle:
+        full = f"{full}\n{subtitle}" if full else subtitle
+ 
+ 
+    if full:
+        fig.suptitle(full, fontsize = 11)
+ 
+ 
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    plt.close(fig)
+ 
+ 
+ 
+ 
+def plot_counts(
+        labels: list,
+        counts: list,
+        total: int = None,
+        saveloc: str = "counts.png",
+        title: str = None,
+        subtitle: str = None,
+        y_label: str = "count",
+        colour: str = "#2b7bba",
+        figsize: tuple = (10.0, 4.6),
+        dpi: int = 150
+    ):
+    counts = np.asarray(counts, dtype = float)
+    fig, ax = plt.subplots(figsize = figsize)
+ 
+    bars = ax.bar(range(len(labels)), counts, color = colour)
+ 
+ 
+    for b, c in zip(bars, counts):
+        ax.text(b.get_x() + b.get_width() / 2, c + (total or counts.max()) * 0.02,
+                f"{int(c)}", ha = "center", va = "bottom", fontsize = 9)
+ 
+ 
+    if total is not None:
+        ax.set_ylim(0, total * 1.15)
+        ax.axhline(total / 2, color = "k", ls = "--", lw = 0.8, alpha = 0.4)
+        ax.set_yticks(range(0, total + 1))
+ 
+ 
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, rotation = 30, ha = "right", fontsize = 9)
+    ax.set_ylabel(y_label)
+    ax.grid(axis = "y", alpha = 0.25, linewidth = 0.6)
+ 
+    full = title or ""
+ 
+ 
+    if subtitle:
+        full = f"{full}\n{subtitle}" if full else subtitle
+ 
+ 
+    if full:
+        ax.set_title(full, fontsize = 11)
+ 
+ 
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
+    plt.close(fig)
+ 
