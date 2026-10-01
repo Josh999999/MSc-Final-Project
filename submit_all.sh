@@ -15,6 +15,12 @@ JOBS=(
     job_experiment1.sh
     job_experiment2.sh
     job_experiment3.sh
+    job_experiment4.sh
+    job_experiment5.sh
+    job_experiment6.sh
+    job_experiment7.sh
+    job_experiment8.sh
+    job_experiment9.sh
 )
 
 for job in "${JOBS[@]}"; do

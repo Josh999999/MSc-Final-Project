@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=grn-exp2
-#SBATCH --nodes=1
+#SBATCH --nodes=4
 #SBATCH -c 4
 #SBATCH --mem=16G
 #SBATCH --time=08:00:00
