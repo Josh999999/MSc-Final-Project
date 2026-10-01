@@ -6,10 +6,16 @@
 #   source ./setup_env.sh          <- MUST be sourced, not executed
 #
 # Options:  ENV_NAME=grn  PY_VERSION=3.12  FORCE_VENV=1
+#!/bin/bash -l
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH -c 2
+#SBATCH --mem=8G
 
 ENV_NAME="${ENV_NAME:-grn}"
 PY_VERSION="${PY_VERSION:-3.12}"
 VENV_DIR="${VENV_DIR:-$HOME/${ENV_NAME}-env}"
+
 
 _ok()   { echo "  [ ok ] $*"; }
 _info() { echo "  [info] $*"; }
