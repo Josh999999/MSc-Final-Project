@@ -1,0 +1,73 @@
+Running SLURM prolog script on ecsai02
+===============================================================================
+Job started on Thu Oct  1 14:05:49 BST 2026
+Job ID          : 1693398
+Job name        : setup_env.sh
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /iridisfs/home/jm2e25/MSc-Final-Project/setup_env.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 2
+Num of tasks    : 1
+Hosts allocated : ecsai02
+Job Output Follows ...
+===============================================================================
+======================================================================
+ 1. Loading the conda module
+======================================================================
+  [ ok ] module load conda/python3
+
+======================================================================
+ 2. Conda information
+======================================================================
+  [ ok ] conda binary : /iridisfs/ixsoftware/conda/miniconda-py3/bin/conda
+  [ ok ] conda base   : /iridisfs/ixsoftware/conda/miniconda-py3
+  [ ok ] sourced /iridisfs/ixsoftware/conda/miniconda-py3/etc/profile.d/conda.sh
+
+======================================================================
+ 3. Channels
+======================================================================
+  [ ok ] conda-forge already configured
+        channels:
+          - conda-forge
+
+======================================================================
+ 4. Environment 'grn'
+======================================================================
+  [ ok ] environment already exists
+  [ ok ] activated 'grn'
+
+
+======================================================================
+ 5. Testing the environment
+======================================================================
+  [ ok ] python  : /home/jm2e25/.conda/envs/grn/bin/python
+  [ ok ] version : Python 3.12.14
+  [ ok ] import numpy       2.4.3
+  [ ok ] import matplotlib  3.11.1
+  [ ok ] headless plot written (_env_test.png)
+
+======================================================================
+ ENVIRONMENT READY
+======================================================================
+ Next:   mkdir -p out && bash submit_all.sh
+==============================================================================
+Running epilogue script on ecsai02.
+
+Submit time  : 2026-10-01T14:05:48
+Start time   : 2026-10-01T14:05:49
+End time     : 2026-10-01T14:06:02
+Elapsed time : 00:00:13 (Timelimit=01:00:00)
+
+Job ID: 1693398
+Cluster: iridis_x
+User/Group: jm2e25/fp
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 2
+CPU Utilized: 00:00:06
+CPU Efficiency: 23.08% of 00:00:26 core-walltime
+Job Wall-clock time: 00:00:13
+Memory Utilized: 11.54 MB
+Memory Efficiency: 0.14% of 8.00 GB (8.00 GB/node)
+

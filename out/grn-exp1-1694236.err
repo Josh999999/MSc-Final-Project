@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/iridisfs/home/jm2e25/MSc-Final-Project/Experiment7.py", line 18, in <module>
+    run_environment("standard", targets, ideal, FIGURES_OUTPUT,
+  File "/iridisfs/home/jm2e25/MSc-Final-Project/Evolution_Experiment.py", line 463, in run_environment
+    plot_run(results, cfg, folder, label = f"{env} / {arm} / seed {seed}", rng = rng)
+  File "/iridisfs/home/jm2e25/MSc-Final-Project/Evolution_Experiment.py", line 132, in plot_run
+    plot_trajectories(
+TypeError: plot_trajectories() got an unexpected keyword argument 'save_loc'
