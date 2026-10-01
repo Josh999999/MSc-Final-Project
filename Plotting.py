@@ -6,10 +6,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
+from GRN import develop
+from Config import Config
  
  
  
-
+ 
 def plot_fitness_surface(
         surfaces: list,
         saveloc: str = "tenet_surface.png",
@@ -103,9 +105,6 @@ def plot_measure_surfaces(
  
     diverging = (scale == "diverging")
  
-    # viridis varies mainly in LIGHTNESS, so small differences are hard to see.
-    # turbo sweeps through many hues over the same range, which makes the same
-    # value difference far more visible.  Pass cmap= to override.
     if cmap is None:
         cmap = "coolwarm" if diverging else "turbo"
  
@@ -116,9 +115,6 @@ def plot_measure_surfaces(
  
  
     if colour_scale == "rank":
-        # Map each value to its quantile among all cells.  Equal numbers of
-        # cells per colour step, so dense regions of the distribution are
-        # spread out and sparse ones compressed.
         qs = np.linspace(0.0, 1.0, 256)
         levels = np.unique(np.quantile(finite, qs)) if finite.size else np.array([0.0, 1.0])
  
@@ -329,11 +325,6 @@ def plot_switches(
         ax_strip: plt.Axes,
         x_switches: np.ndarray = None
     ):
- 
-    # Accept either the switch GENERATIONS ([150, 300, 450]) or the
-    # per-generation boolean mask ([False, ..., True, ...]).  Iterating a
-    # boolean array yields False/True, which drew every marker at x = 0 and
-    # x = 1 instead of at the switches.
     x_switches = np.asarray(x_switches)
  
     if x_switches.dtype == bool:
@@ -656,6 +647,66 @@ def plot_transfer(
  
  
  
+ 
+def show_interaction_heatmap(B: np.array, saveloc: str, title = None):
+    fig, ax = plt.subplots(figsize=(5, 4))
+ 
+    vmax = np.max(np.abs(B)) or 1.0
+    im = ax.imshow(B, cmap="bone", vmin=-vmax, vmax=vmax)
+    ax.set_title(title)
+    ax.set_xlabel("Gene i")
+    ax.set_ylabel("Gene j")
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+ 
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi=150)
+    plt.close(fig)
+ 
+ 
+ 
+ 
+def random_profiles(R: int, N: int, rng: np.random.Generator) -> np.ndarray:
+    if N is None: 
+        N = Global.N
+ 
+        
+    G = rng.uniform(low = -1.0, high = 1.0, size = (R, N))
+ 
+    return G
+ 
+ 
+ 
+def show_phenotypes(
+        B: np.array, 
+        R: int,      
+        cfg: Config,
+        rng: np.random.Generator,
+        saveloc: str, 
+        title = None,   
+    ):
+    phenotypes = []
+    initial_profiles = random_profiles(R = R, N = cfg.N, rng = rng)
+ 
+    for G in initial_profiles:
+        P = develop(G, B, cfg, T = cfg.T)
+        phenotypes.append(P)
+ 
+ 
+    fig, ax = plt.subplots(figsize=(5, 5))
+ 
+    vmax = np.max(np.abs(phenotypes)) or 1.0
+    im = ax.imshow(phenotypes, cmap="bone", vmin=-vmax, vmax=vmax, aspect="auto")
+    ax.set_title(title)
+    ax.set_xlabel("Genes")
+    ax.set_ylabel("Phenotype samples")
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+ 
+    fig.tight_layout()
+    fig.savefig(saveloc, dpi=150)
+    plt.close(fig)
+ 
+ 
+ 
 def plot_matrices(
         matrices: list,
         keys: list = None,
@@ -670,17 +721,6 @@ def plot_matrices(
         figsize_per: tuple = (3.2, 3.4),
         dpi: int = 150
     ):
-    """
-    Heatmaps of one or more matrices side by side, sharing a colour scale.
- 
-    `symmetric` centres the scale on zero (vmin = -m, vmax = +m), which is what
-    an interaction matrix wants: red for excitation, blue for inhibition, white
-    for no connection.  Set it False for non-negative quantities.
- 
-    `reference` draws one extra panel FIRST on its own colour scale -- for a
-    figure of differences, where the reference is a matrix rather than a
-    difference and sharing the scale would distort both.
-    """
     mats = [np.asarray(m, dtype = float) for m in matrices]
     n = len(mats)
     keys = keys if keys is not None else [f"{i}" for i in range(n)]
@@ -735,7 +775,6 @@ def plot_matrices(
  
  
  
- 
 def plot_round_curves(
         round_curves: list,
         keys: list = None,
@@ -750,20 +789,6 @@ def plot_round_curves(
         share_y: bool = True,
         dpi: int = 150
     ):
-    """
-    One panel per run, and within each panel one line per round.
- 
-    `round_curves` is a list (runs) of lists (rounds) of 1-D curves.  Rounds
-    are coloured light to dark, so a process that is learning shows each round
-    starting higher than the one before it.
- 
-    `separate` splits the figure into individual files instead of panels:
-        None     one figure, one panel per run (the default)
-        "grid"   one figure, one ROW per run and one column per round
-        "run"    one figure per run: a ROW of panels, one per round
-        "curve"  one figure per (run, round) -- a single curve each
-    `saveloc` is then used as a stem: "<stem>_seed0.png", "<stem>_seed0_round1.png".
-    """
     colours = plt.get_cmap(cmap)
  
     if separate == "grid":
@@ -901,7 +926,6 @@ def plot_round_curves(
  
  
  
- 
 def plot_counts(
         labels: list,
         counts: list,
@@ -950,4 +974,3 @@ def plot_counts(
     fig.tight_layout()
     fig.savefig(saveloc, dpi = dpi, bbox_inches = "tight")
     plt.close(fig)
- 

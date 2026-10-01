@@ -61,40 +61,6 @@ def differential_energy(P: np.ndarray, P_try: np.ndarray, B: np.ndarray, cfg: Co
  
  
  
-def candidate_energies(h: np.ndarray, c: float, P: np.ndarray = None, normalise: bool = True) -> np.ndarray:
-    h = np.asarray(h, dtype = DTYPE)
- 
- 
-    if not normalise:
- 
-        return np.concatenate((-c * h, c * h))
- 
- 
-    P = np.asarray(P, dtype = DTYPE)
-    q = float(P @ h)
-    n = float(P @ P)
- 
-    E0 = -0.5 * q / n if n > 0 else 0.0
- 
-    d_pos = n + 2.0 * c * P + c * c
-    E_pos = -0.5 * (q + 2.0 * c * h) / np.where(d_pos > 0, d_pos, 1.0)
- 
-    d_neg = n - 2.0 * c * P + c * c
-    E_neg = -0.5 * (q - 2.0 * c * h) / np.where(d_neg > 0, d_neg, 1.0)
- 
- 
-    return np.concatenate((E_pos - E0, E_neg - E0))
- 
- 
- 
- 
-def adaptive_tau(dE_pool: np.ndarray, cfg: Config) -> float: 
- 
-    return max(cfg.c_tau * float(np.std(dE_pool)), cfg.tau_floor)
- 
- 
- 
- 
 def phenotype_alignment(P: np.ndarray, B: np.ndarray, cfg: Config) -> float:
     P = np.asarray(P, dtype = DTYPE)
     B = np.asarray(B, dtype = DTYPE)
@@ -130,15 +96,15 @@ def plastic_search(
  
     tau = None
  
-
+ 
     for _ in range(cfg.M):      
  
         # Compute current phenotype mutation
         P_try = compute_mutation(P, cfg, rng)
-
+ 
         if cfg.bound_phenotype:
             np.clip(P_try, -1.0, 1.0, out = P_try)
-
+ 
         # Apply clipping to keep in range for normalisation
         P_try = np.clip(P_try, a_min = -1, a_max = 1, dtype = DTYPE)
  
@@ -161,22 +127,10 @@ def plastic_search(
  
  
         # Apply the energy gates with fitness based selection
-        if cfg.energy_gate in ["or", "and", "harsh"]:
- 
-            # tau depends only on P, so recompute it only when P has moved.
-            if tau is None:
-                h = B @ P
- 
-                step = cfg.c * (np.linalg.norm(P) / np.sqrt(cfg.N)) if cfg.relative_mutation else cfg.c
-                step = max(step, 1e-12)
- 
-                # Pool statistics over every single-gene move of the nominal size.
-                dE_pool = candidate_energies(h, step, P, cfg.normalise_energy)
-                tau = adaptive_tau(dE_pool, cfg)
- 
+        if cfg.energy_gate in ["or", "and"]: 
  
             # Calculate the energy probability
-            w = sigmoid_sigma(-dE / tau)
+            w = sigmoid_sigma(-dE)
  
  
             # Apply the relevant energy gates
@@ -186,10 +140,6 @@ def plastic_search(
             elif cfg.energy_gate == "and":                
                 accept = (F_try > F) and (rng.random() < w)
             
-            elif cfg.energy_gate == "harsh":
-                slack = rng.uniform(0, cfg.slack_limit) 
-                accept = (F_try > F) and (cfg.energy_limit - slack < w)
-    
         elif cfg.energy_gate == "deterministic":    
             accept = (F_try > F) and (dE <= 0)
         
@@ -203,9 +153,6 @@ def plastic_search(
             A = alignment
             accepted += 1
             accepted_alignments.append(alignment)
- 
-            # P has moved, so the cached h / tau are stale.
-            tau = None
  
  
         curve.append(F)
