@@ -31,7 +31,7 @@ echo "python    : $(which python)"
 python -c "import numpy, matplotlib; print('numpy', numpy.__version__, '| matplotlib', matplotlib.__version__)"
 echo "----------------------------------------------------------------------"
 
-python Experiment4.py
+python Experiment6.py
 status=$?
 
 echo "----------------------------------------------------------------------"
