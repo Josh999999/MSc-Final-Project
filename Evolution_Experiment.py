@@ -1,8 +1,3 @@
-"""
-Shared machinery for the evolutionary experiments (7: standard environment,
-8: modular environment).  Each experiment file sets its environment, run size
-and output folder, then calls run_environment().
-"""
 """External Imports (Libraries and APIs)"""
 import os
 import itertools
@@ -101,7 +96,7 @@ def summarise(results: dict, cfg: Config, ideal: np.ndarray) -> dict:
  
  
  
-def plot_run(results: dict, cfg: Config, folder: str, label: str):
+def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random.Generator):
     """The per-run diagnostic plots, exactly as configured in the original experiment."""
     trajectories = results["trajectories"]
     recorded_gens = np.asarray(results["recorded_gens"])
@@ -462,12 +457,10 @@ def run_environment(env: str, targets: np.ndarray, ideal, figures_output: str,
             results, _ = sswm_evolve(cfg, make_rng(cfg.seed), np.zeros((cfg.N, cfg.N)))
             results.update(summarise(results, cfg, ideal))
             per_seed.append(results)
+            rng = make_rng(seed)
  
             folder = os.path.join(figures_output, arm, f"seed_{seed}")
-            plot_run(results, cfg, folder, label = f"{env} / {arm} / seed {seed}")
-            print(f"  {env:<9}{arm:<10} seed {seed}: native={results['final_native_fitness']:.4f}  "
-                  f"mean={results['mean_fitness']:.4f}  switch_loss={results['mean_switch_loss']:+.4f}"
-                  + (f"  modularity={results['modularity']:+.3f}" if ideal is not None else ""), flush = True)
+            plot_run(results, cfg, folder, label = f"{env} / {arm} / seed {seed}", rng = rng)
  
  
         # ---- per-arm summary table: every seed, mean, std ----
@@ -488,8 +481,11 @@ def run_environment(env: str, targets: np.ndarray, ideal, figures_output: str,
  
  
         averaged[arm] = avg
+        
+        rng = make_rng(DEFAULT_SEED)
+ 
         plot_run(avg, cfg, os.path.join(figures_output, arm, "average"),
-                 label = f"{env} / {arm} / mean of {seeds} seeds")
+                 label = f"{env} / {arm} / mean of {seeds} seeds", rng = rng)
  
  
     # ---- compare the arms on the averaged results ----
