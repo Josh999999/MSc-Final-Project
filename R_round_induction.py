@@ -30,6 +30,7 @@ def r_round_induction(
     if AUC == -1:
         search = plastic_search_return_wrapper(B, P, cfg, rng, S, limit_return = True)
         AUC = search["auc_inner"]
+
     
     round_curves = []
  
@@ -84,7 +85,7 @@ def r_round_induction(
         # Redevelop the Genotype under the new interaction matrix
         if cfg.relax:
             # Relaxing the genotype is ordinary development: use T, not r_T.
-            P = handle_develop(G, B, cfg, induction = False)
+            P = handle_develop(P_, B, cfg, induction = False)
             F = evaluate_fitness(P, S, cfg)
             outer_curve.append(F)
  
@@ -117,7 +118,7 @@ def r_round_induction_return_wrapper(
         rng: np.random.Generator, 
         S: np.ndarray = None, 
         limit_return: bool = False, 
-        AUC: float = 0.0
+        AUC: float = -1
     ) -> dict:
     B, P, F, inner_curve, outer_curve, align_curve, round_curves = r_round_induction(B, P, G, cfg, rng, S, AUC)
  

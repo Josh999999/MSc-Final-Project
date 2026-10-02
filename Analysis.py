@@ -150,6 +150,6 @@ def arm_summary_table(summary: dict, arm: str, n_seeds: int, save_loc: str, titl
         column_tites = columns,
         row_results = rows,
         save_loc = save_loc,
-        title = f"{title} ({f"{arm} arm, {n_seeds} seeds"})",
+        title = f"{title} ({arm} arm, {n_seeds} seeds)",
         sig = sig
     )

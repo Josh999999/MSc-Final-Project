@@ -3,7 +3,7 @@ import os
  
  
 """Local Imports"""
-from Config import Config, make_rng, ENERGY_GATES
+from Config import Config, make_rng
 from Data import S1
 from Tenets import plastic_measure_surface
 from Plotting import plot_measure_surfaces
@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
 
         for Y in [0.5, 1.0, 2.0, 6.0]:
+            cfg = cfg.set(Y = Y)
 
             # Same stream per panel so the panels are comparable.
             result = plastic_measure_surface(
@@ -65,6 +66,5 @@ if __name__ == "__main__":
             colour_scale = "percentile"
         )
 
-        span = [f"{s['Z'].min():+.4f}..{s['Z'].max():+.4f}" for s in surfaces]
-        print(f"deterministic | {key:<16} ranges per Y: {'  '.join(span)}")
+
         print(f"         wrote {OUTPUT}")

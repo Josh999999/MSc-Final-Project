@@ -18,7 +18,7 @@ def handle_induction(
         rng: np.random.Generator,
         S: np.ndarray = None,
         limit_return: bool = False,
-        AUC: float = 0.0
+        AUC: float = -1
     ) -> dict[any]:
 
     history = {}
