@@ -301,7 +301,7 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
     show_interaction_heatmap(
         B = B_heb, 
         title = "Hebbian interaction matrix", 
-        saveloc = SAVELOC
+        save_loc = SAVELOC
     )
  
     print(f"         wrote {PLOT_NAME} to {SAVELOC}")  
@@ -316,7 +316,7 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
     show_interaction_heatmap(
         B = B, 
         title = "Evolved interaction matrix B", 
-        saveloc = SAVELOC
+        save_loc = SAVELOC
     )
  
     print(f"         wrote {PLOT_NAME} to {SAVELOC}")  
@@ -329,7 +329,7 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
         cfg = cfg,
         rng = rng,
         title=  "Adult phenotypes from random G", 
-        saveloc = f"{folder}/Figure1E.png"
+        save_loc = f"{folder}/Figure1E.png"
     )
 
  

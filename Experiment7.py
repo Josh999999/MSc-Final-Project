@@ -1,4 +1,4 @@
-from Evolution_Experiment import standard_environment, run_environment
+from Evolution_Experiment import modular_environment, run_environment
 
 
 
@@ -10,10 +10,13 @@ SWITCH_EVERY  = 1_500
 RECORD_EVERY  = 200
 SEEDS         = 5
 
+# Environment: N genes, K modules (2^K targets), fixed module patterns.
+MOD_N, MOD_K, MOD_ENV_SEED = 16, 4, 7
+
 
 
 
 if __name__ == "__main__":
-    targets, ideal = standard_environment()
-    run_environment("standard", targets, ideal, FIGURES_OUTPUT,
+    targets, ideal = modular_environment(MOD_N, MOD_K, MOD_ENV_SEED)
+    run_environment("modular", targets, ideal, FIGURES_OUTPUT,
                     N_GENERATIONS, SWITCH_EVERY, RECORD_EVERY, SEEDS)

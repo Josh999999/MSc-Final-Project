@@ -20,7 +20,6 @@ JOBS=(
     job_experiment6.sh
     job_experiment7.sh
     job_experiment8.sh
-    job_experiment9.sh
 )
 
 for job in "${JOBS[@]}"; do

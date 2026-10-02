@@ -29,10 +29,10 @@ if __name__ == "__main__":
         N = len(S1),
         targets = S1,
         induction = True,
+        Y = 1,
     )
  
     COLUMN_TITLES = (
-        "Magnitude\n(Y)",
         "Energy\ngate",
         "Acceptance\nrate",
         "AUC",
@@ -56,60 +56,56 @@ if __name__ == "__main__":
  
  
         # Run the Plastic search for a sweep of magnitudes and energy gate protocols
-        for Y in [0.5, 1.0, 2.0, 6.0]:
-            BY = B * Y
             
-            # Develop the Phenotype as the cfg for the plastic search
-            P = handle_develop(G, BY, cfg, induction = False)
- 
-            cfg = cfg.set(Y = Y)
- 
- 
-            for gate in ENERGY_GATES:
- 
-                # Generates three new rows in the table for each magntiude Y
-                row_data = [Y, gate]
-                row_measurements = np.asarray([0] * (len(COLUMN_TITLES) - 2), dtype = float)
-
-                # Reset the Energy gate
-                cfg.energy_gate = gate
+        # Develop the Phenotype as the cfg for the plastic search
+        P = handle_develop(G, B, cfg, induction = False)
 
 
-                for i in range(0, n_seeds):
- 
-                    # Perform the plastic search - This search doesn't alter B
-                    # Fresh stream per gate, so the gates are compared on identical draws.
-                    history = plastic_search_return_wrapper(B = BY, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = False)    
-    
-                    # Save the search data for the current row
-                    data = []
-                    data.append(history['acceptance_rate']) # Convert to a percentage in a string
-                    data.append(history["auc_inner"])
-                    data.append(history["F_change"])
-                    data.append(history["align_change"])
-                    data.append(history["avg_accept_A"])
-                    data.append(history["std_accept_A"])
+        for gate in ENERGY_GATES:
 
-                    row_measurements += np.asarray(data, dtype = float)
+            # Generates three new rows in the table for each magntiude Y
+            row_data = [gate]
+            row_measurements = np.asarray([0] * (len(COLUMN_TITLES) - 1), dtype = float)
+
+            # Reset the Energy gate
+            cfg.energy_gate = gate
 
 
-                # Handle Inserting the measurements into the row as data
+            for i in range(0, n_seeds):
 
-                # Take the mean of measurements accumulated across seeds
-                row_measurements = row_measurements / n_seeds
+                # Perform the plastic search - This search doesn't alter B
+                # Fresh stream per gate, so the gates are compared on identical draws.
+                history = plastic_search_return_wrapper(B = B, P = P, cfg = cfg, rng = make_rng(cfg.seed + i), limit_return = False)    
 
-                # Configure the acceptance rate for percentage display
-                acceptance_rate = row_measurements[0]
-                row_measurements = list(row_measurements)
-                row_measurements[0] = f"{acceptance_rate * 100:.1f}%"
+                # Save the search data for the current row
+                data = []
+                data.append(history['acceptance_rate']) # Convert to a percentage in a string
+                data.append(history["auc_inner"])
+                data.append(history["F_change"])
+                data.append(history["align_change"])
+                data.append(history["avg_accept_A"])
+                data.append(history["std_accept_A"])
 
-                row_data = row_data + row_measurements
+                row_measurements += np.asarray(data, dtype = float)
 
- 
-                # Collect the row data
-                search_data.append(row_data) 
- 
- 
+
+            # Handle Inserting the measurements into the row as data
+
+            # Take the mean of measurements accumulated across seeds
+            row_measurements = row_measurements / n_seeds
+
+            # Configure the acceptance rate for percentage display
+            acceptance_rate = row_measurements[0]
+            row_measurements = list(row_measurements)
+            row_measurements[0] = f"{acceptance_rate * 100:.1f}%"
+
+            row_data = row_data + row_measurements
+
+
+            # Collect the row data
+            search_data.append(row_data) 
+
+
         # Display the results of the experiment and analysis in a table
         create_search_table(
             column_tites = COLUMN_TITLES, 
