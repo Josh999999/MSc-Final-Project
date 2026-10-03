@@ -1,0 +1,47 @@
+Running SLURM prolog script on ecsai02
+===============================================================================
+Job started on Sat Oct  3 22:30:32 BST 2026
+Job ID          : 1713093
+Job name        : grn-exp1
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /iridisfs/home/jm2e25/MSc-Final-Project/job_experiment6.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 4
+Num of tasks    : 1
+Hosts allocated : ecsai02
+Job Output Follows ...
+===============================================================================
+host      : ecsai02
+started   : Sat Oct  3 22:30:42 BST 2026
+python    : /home/jm2e25/.conda/envs/grn/bin/python
+numpy 2.4.3 | matplotlib 3.11.1
+----------------------------------------------------------------------
+         wrote interaction_trajectories.png to Experiment6/control/seed_0/interaction_trajectories.png
+         wrote fitness.png to Experiment6/control/seed_0/fitness.png
+         wrote selections.png to Experiment6/control/seed_0/selections.png
+         wrote grn_alignment.png to Experiment6/control/seed_0/grn_alignment.png
+         wrote interaction_magnitude.png to Experiment6/control/seed_0/interaction_magnitude.png
+         wrote convergence.png to Experiment6/control/seed_0/convergence.png
+----------------------------------------------------------------------
+finished  : Sat Oct  3 22:31:00 BST 2026  (exit 1)
+==============================================================================
+Running epilogue script on ecsai02.
+
+Submit time  : 2026-10-03T22:30:31
+Start time   : 2026-10-03T22:30:32
+End time     : 2026-10-03T22:31:00
+Elapsed time : 00:00:28 (Timelimit=1-00:00:00)
+
+Job ID: 1713093
+Cluster: iridis_x
+User/Group: jm2e25/fp
+State: FAILED (exit code 1)
+Nodes: 1
+Cores per node: 4
+CPU Utilized: 00:00:19
+CPU Efficiency: 16.96% of 00:01:52 core-walltime
+Job Wall-clock time: 00:00:28
+Memory Utilized: 11.99 MB
+Memory Efficiency: 0.07% of 16.00 GB (16.00 GB/node)
+

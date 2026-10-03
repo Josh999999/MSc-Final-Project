@@ -1,0 +1,15 @@
+/iridisfs/home/jm2e25/MSc-Final-Project/Plotting.py:410: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  ax.legend(frameon = False, fontsize = 9)
+/iridisfs/home/jm2e25/MSc-Final-Project/Plotting.py:423: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  fig.tight_layout()
+/iridisfs/home/jm2e25/MSc-Final-Project/Plotting.py:519: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  fig.tight_layout()
+Traceback (most recent call last):
+  File "/iridisfs/home/jm2e25/MSc-Final-Project/Experiment6.py", line 18, in <module>
+    run_environment("standard", targets, ideal, FIGURES_OUTPUT,
+  File "/iridisfs/home/jm2e25/MSc-Final-Project/Evolution_Experiment.py", line 463, in run_environment
+    plot_run(results, cfg, folder, label = f"{env} / {arm} / seed {seed}", rng = rng)
+  File "/iridisfs/home/jm2e25/MSc-Final-Project/Evolution_Experiment.py", line 302, in plot_run
+    B = B_heb, 
+        ^^^^^
+UnboundLocalError: cannot access local variable 'B_heb' where it is not associated with a value
