@@ -1,0 +1,43 @@
+Running SLURM prolog script on ecsai02
+===============================================================================
+Job started on Sat Oct  3 22:43:47 BST 2026
+Job ID          : 1713146
+Job name        : grn-exp1
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /iridisfs/home/jm2e25/MSc-Final-Project/job_experiment1.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 4
+Num of tasks    : 1
+Hosts allocated : ecsai02
+Job Output Follows ...
+===============================================================================
+host      : ecsai02
+started   : Sat Oct  3 22:43:49 BST 2026
+python    : /iridisfs/ixsoftware/conda/miniconda-py3/bin/python
+numpy 2.4.3 | matplotlib 3.10.1
+----------------------------------------------------------------------
+running: Experiment1
+  wrote Experiment1/tenet_fitness_surface.png
+----------------------------------------------------------------------
+finished  : Sat Oct  3 22:43:54 BST 2026  (exit 0)
+==============================================================================
+Running epilogue script on ecsai02.
+
+Submit time  : 2026-10-03T22:43:46
+Start time   : 2026-10-03T22:43:47
+End time     : 2026-10-03T22:43:54
+Elapsed time : 00:00:07 (Timelimit=1-00:00:00)
+
+Job ID: 1713146
+Cluster: iridis_x
+User/Group: jm2e25/fp
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 4
+CPU Utilized: 00:00:07
+CPU Efficiency: 25.00% of 00:00:28 core-walltime
+Job Wall-clock time: 00:00:07
+Memory Utilized: 7.99 MB
+Memory Efficiency: 0.05% of 16.00 GB (16.00 GB/node)
+

@@ -1,0 +1,19 @@
+Running SLURM prolog script on ecsai04
+===============================================================================
+Job started on Sat Oct  3 22:44:01 BST 2026
+Job ID          : 1713148
+Job name        : grn-exp3
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /iridisfs/home/jm2e25/MSc-Final-Project/job_experiment3.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 4
+Num of tasks    : 1
+Hosts allocated : ecsai04
+Job Output Follows ...
+===============================================================================
+host      : ecsai04
+started   : Sat Oct  3 22:44:03 BST 2026
+python    : /iridisfs/ixsoftware/conda/miniconda-py3/bin/python
+numpy 2.4.3 | matplotlib 3.10.1
+----------------------------------------------------------------------

@@ -1,0 +1,63 @@
+Running SLURM prolog script on ecsai02
+===============================================================================
+Job started on Sat Oct  3 22:43:47 BST 2026
+Job ID          : 1713147
+Job name        : grn-exp2
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /iridisfs/home/jm2e25/MSc-Final-Project/job_experiment2.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 4
+Num of tasks    : 1
+Hosts allocated : ecsai02
+Job Output Follows ...
+===============================================================================
+host      : ecsai02
+started   : Sat Oct  3 22:43:49 BST 2026
+python    : /iridisfs/ixsoftware/conda/miniconda-py3/bin/python
+numpy 2.4.3 | matplotlib 3.10.1
+----------------------------------------------------------------------
+running: appropriate interactions
+  wrote Experiment2/plastic_search_table_appropriate_interactions.png
+running: inappropriate interactions
+  wrote Experiment2/plastic_search_table_inappropriate_interactions.png
+running: noisy appropriate interactions
+  wrote Experiment2/plastic_search_table_noisy_appropriate_interactions.png
+running: noisy inappropriate interactions
+  wrote Experiment2/plastic_search_table_noisy_inappropriate_interactions.png
+running: random interactions
+  wrote Experiment2/plastic_search_table_random_interactions.png
+running: modular random interactions
+  wrote Experiment2/plastic_search_table_modular_random_interactions.png
+running: modular appropriate interactions
+  wrote Experiment2/plastic_search_table_modular_appropriate_interactions.png
+running: modular inappropriate interactions
+  wrote Experiment2/plastic_search_table_modular_inappropriate_interactions.png
+running: sparse random interactions
+  wrote Experiment2/plastic_search_table_sparse_random_interactions.png
+running: sparse appropriate interactions
+  wrote Experiment2/plastic_search_table_sparse_appropriate_interactions.png
+running: sparse inappropriate interactions
+  wrote Experiment2/plastic_search_table_sparse_inappropriate_interactions.png
+----------------------------------------------------------------------
+finished  : Sat Oct  3 22:43:54 BST 2026  (exit 0)
+==============================================================================
+Running epilogue script on ecsai02.
+
+Submit time  : 2026-10-03T22:43:46
+Start time   : 2026-10-03T22:43:47
+End time     : 2026-10-03T22:43:54
+Elapsed time : 00:00:07 (Timelimit=1-00:00:00)
+
+Job ID: 1713147
+Cluster: iridis_x
+User/Group: jm2e25/fp
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 4
+CPU Utilized: 00:00:06
+CPU Efficiency: 21.43% of 00:00:28 core-walltime
+Job Wall-clock time: 00:00:07
+Memory Utilized: 5.79 MB
+Memory Efficiency: 0.04% of 16.00 GB (16.00 GB/node)
+
