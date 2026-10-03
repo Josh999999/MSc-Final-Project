@@ -1,0 +1,46 @@
+Running SLURM prolog script on ecsai02
+===============================================================================
+Job started on Sat Oct  3 10:39:51 BST 2026
+Job ID          : 1709802
+Job name        : grn-exp1
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /iridisfs/home/jm2e25/MSc-Final-Project/job_experiment4.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 4
+Num of tasks    : 1
+Hosts allocated : ecsai02
+Job Output Follows ...
+===============================================================================
+host      : ecsai02
+started   : Sat Oct  3 10:39:56 BST 2026
+python    : /home/jm2e25/.conda/envs/grn/bin/python
+numpy 2.4.3 | matplotlib 3.11.1
+----------------------------------------------------------------------
+         wrote Experiment4/tenet_deterministic_auc_inner.png
+         wrote Experiment4/tenet_deterministic_auc_outer.png
+         wrote Experiment4/tenet_deterministic_F_change_inner.png
+         wrote Experiment4/tenet_deterministic_F_change_outer.png
+         wrote Experiment4/tenet_deterministic_align_change.png
+----------------------------------------------------------------------
+finished  : Sat Oct  3 11:15:57 BST 2026  (exit 0)
+==============================================================================
+Running epilogue script on ecsai02.
+
+Submit time  : 2026-10-03T10:39:50
+Start time   : 2026-10-03T10:39:51
+End time     : 2026-10-03T11:15:57
+Elapsed time : 00:36:06 (Timelimit=1-00:00:00)
+
+Job ID: 1709802
+Cluster: iridis_x
+User/Group: jm2e25/fp
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 4
+CPU Utilized: 00:35:59
+CPU Efficiency: 24.92% of 02:24:24 core-walltime
+Job Wall-clock time: 00:36:06
+Memory Utilized: 112.23 MB
+Memory Efficiency: 0.68% of 16.00 GB (16.00 GB/node)
+
