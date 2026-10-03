@@ -52,10 +52,17 @@ def r_round_induction(
         round_curves.append(np.asarray(search["curve"], dtype = DTYPE))
  
         inner_curve.append(AUC)
+
+
+        if cfg.bound_phenotype:
+            Pc  = np.clip(P,  -1.0, 1.0)
+            Pc_ = np.clip(P_, -1.0, 1.0)
+        else:
+            Pc, Pc_ = P, P_
         
         
         # Update the matrix using a contrastive update
-        dPP_ = np.outer(P_, P_) - np.outer(P, P)
+        dPP_ = np.outer(Pc_, Pc_) - np.outer(Pc, Pc)
  
  
         # Determine how the interactions are updated

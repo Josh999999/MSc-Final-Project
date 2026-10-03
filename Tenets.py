@@ -53,9 +53,12 @@ def ideal_hebbian(cfg: Config, S: np.ndarray = None) -> np.ndarray:
 def measure_tenet1(B: np.ndarray, cfg: Config, S: np.ndarray = None) -> float:
     B = np.asarray(B, dtype = DTYPE)
     H = ideal_hebbian(cfg, S)
+
+ 
+    off = cfg.mask & ~np.eye(cfg.N, dtype = bool)
  
  
-    return _cos(B[cfg.mask], H[cfg.mask])
+    return _cos(B[off], H[off])
  
  
  
@@ -115,8 +118,8 @@ def synthesise_G(
  
  
     return G * amplitude * np.sqrt(S.size)
-
-
+ 
+ 
  
  
 def plastic_measure_surface(
@@ -155,13 +158,13 @@ def plastic_measure_surface(
                 # Develop under the SCALED matrix, then run the plastic search
                 # on that phenotype with the same matrix.
                 P = handle_develop(G, B, cfg, induction = False)
-
-
+ 
+ 
                 if cfg.induction:
                     history = handle_induction(B, P, G, cfg, rng, S = S_eval)
                     M = history[measure]
                     acc += M
-
+ 
                 else:
                     acc += evaluate_fitness(P, S_eval, cfg)
  
@@ -178,9 +181,9 @@ def plastic_measure_surface(
         "max_tenet1_error": float(np.max(np.abs(check1))),
         "max_tenet2_error": float(np.max(np.abs(check2))),
     }
-
-
-
+ 
+ 
+ 
   
 def plastic_measure_surface(
         cfg: Config,
@@ -227,13 +230,13 @@ def plastic_measure_surface(
                 # Own stream for the walk, seeded from the synthesis stream (see
                 # fitness_surface for why).
                 walk_rng = make_rng(int(rng.integers(2**31)))
-
-
+ 
+ 
                 if cfg.induction:
                     history = handle_induction(B, P, G, cfg, walk_rng, S = S_eval, limit_return = False)
                     M = history[measure]
                     acc += M
-
+ 
                 else:
                     acc += evaluate_fitness(P, S_eval, cfg)
  

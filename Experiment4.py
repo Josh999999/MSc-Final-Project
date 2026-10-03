@@ -31,7 +31,6 @@ if __name__ == "__main__":
         targets = S1,
         induction = True,
         induction_process = "r-round",
-        energy_gate = "deterministic"
     )
  
     os.makedirs(FIGURES_OUTPUT, exist_ok = True)

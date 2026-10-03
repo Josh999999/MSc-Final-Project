@@ -3,7 +3,7 @@ import os
  
  
 """Local Imports"""
-from Config import Config, make_rng, ENERGY_GATES
+from Config import Config, make_rng
 from Data import S1
 from Tenets import plastic_measure_surface
 from Plotting import plot_measure_surfaces
@@ -66,5 +66,5 @@ if __name__ == "__main__":
             colour_scale = "percentile"
         )
 
-        
+
         print(f"         wrote {OUTPUT}")
