@@ -102,11 +102,11 @@ class Config:
     M: int = 100                                # mutation attempts per plastic search
     c: float = 1.0                              # single-gene mutation size
     eta: float = 0.5                            # contrastive learning rate for B
-    rounds: int = 20                            # R rounds of develop -> plasticity -> induct
+    rounds: int = 10                            # R rounds of develop -> plasticity -> induct
     mutation_type: str = "phenotype"            # Can be "single-gene" or "phenotype"
     normalise_energy: bool = True               # Rayleigh quotient: direction only
     r_T: int = None                             # redevelopment time after updating
-    relax: bool = True                          # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
+    relax: bool = False                         # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
     induction_interactions: str = "all"         # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
  
  
