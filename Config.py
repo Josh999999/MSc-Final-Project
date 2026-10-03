@@ -102,7 +102,7 @@ class Config:
     M: int = 100                                # mutation attempts per plastic search
     c: float = 1.0                              # single-gene mutation size
     eta: float = 0.5                            # contrastive learning rate for B
-    rounds: int = 10                            # R rounds of develop -> plasticity -> induct
+    rounds: int = 20                            # R rounds of develop -> plasticity -> induct
     mutation_type: str = "phenotype"            # Can be "single-gene" or "phenotype"
     normalise_energy: bool = True               # Rayleigh quotient: direction only
     r_T: int = None                             # redevelopment time after updating
