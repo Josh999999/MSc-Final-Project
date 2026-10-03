@@ -106,7 +106,7 @@ class Config:
     mutation_type: str = "phenotype"            # Can be "single-gene" or "phenotype"
     normalise_energy: bool = True               # Rayleigh quotient: direction only
     r_T: int = None                             # redevelopment time after updating
-    relax: bool = False                         # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
+    relax: bool = True                          # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
     induction_interactions: str = "all"         # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
  
  
