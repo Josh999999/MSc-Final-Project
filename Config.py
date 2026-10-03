@@ -99,7 +99,7 @@ class Config:
     energy_gate: str = "deterministic"          # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and" or "deterministic"
     energy_type: str = "differential"           # Can be 'standard' or 'differential'
     energy_normalise_interactions: bool = True  # Normalise the interaction matrix inside of the energy calculations
-    M: int = 100                                # mutation attempts per plastic search
+    M: int = 150                                # mutation attempts per plastic search
     c: float = 1.0                              # single-gene mutation size
     eta: float = 0.5                            # contrastive learning rate for B
     rounds: int = 20                            # R rounds of develop -> plasticity -> induct
