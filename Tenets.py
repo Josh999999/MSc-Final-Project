@@ -127,9 +127,9 @@ def plastic_measure_surface(
         rng: np.random.Generator,
         measure: str = "auc_inner",
         S_eval: np.ndarray = None,
-        n_seeds: int = 4,
+        n_seeds: int = 8,
         amplitude: float = 1.0,
-        grid: int = 15
+        grid: int = 21
     ) -> dict:
     S_eval = cfg.target if S_eval is None else np.asarray(S_eval, dtype = DTYPE)
  

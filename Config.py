@@ -28,20 +28,15 @@ class Config:
     targets: np.ndarray = field(default_factory = lambda: np.array([S1, S2], dtype = float))
     seed: int = DEFAULT_SEED
  
-    # !-- Deterministic evaluation --!
+    # !-- Development form --!
     development: str = "standard"   # "standard" = the published form,
                                     # P(0) = G, P += t1*sigma(BP) - t2*P;
                                     # "bounded" = G as a persistent input,
                                     # P += t1*(sigma(BP + G) - P)
     bound_phenotype: bool = True            # keep plastic moves inside [-1, 1] too
  
-    # !-- What selection scores --!
-    selection_score: str = "gated"
-    plastic_bonus: float = 0.1
-    inherit_induced: str = "none"
-    B_limit: float = 0.3
- 
-    deterministic_induction: bool = True
+    # !-- Deterministic evaluation --!
+    deterministic_induction: bool = True    # score every genotype with the same fixed induction stream (common random numbers)
     induction_seed: int = DEFAULT_SEED
     fitness_type: str = "standard"          # Can be "cosine" or "standard"
  
@@ -64,7 +59,6 @@ class Config:
     
  
     # !-- Normalisation switches --!
-    normalise_interactions: bool = False    # rescale B to Frobenius norm Y
     normalise_fitness: bool = True          # rescale fitness into [0, 1]
  
  
@@ -74,13 +68,12 @@ class Config:
     prob_mut_B: float = 0.5
     n_mut_G: int = 1
     n_mut_B: int = 8
+    B_limit: float = 0.3                    # per-entry bound on the interaction weights under mutation
     n_generations: int = 200_000
     switch_every: int = 2000
     record: bool = True
     record_every: int = 1000
-    drift_selection: bool = True            # accept ties as well as strict gains
     symmetric_interactions: bool = False    # mirror each B mutation to (j, i)
-    baldwin_effect: bool = True             # PLACEHOLDER: accepted but currently inert
  
  
     # !-- Interaction matrix construction --!
@@ -96,18 +89,17 @@ class Config:
     # !-- Induction --!
     induction: bool = False                     # Toggle induction (inside of the evolutionary algorithm)
     induction_process: str = "r-round"          # Can be "plastic" or "r-round"
-    energy_gate: str = "deterministic"          # Determines how the energy of the plasticy phenotype should impact acceptance: "or", "and" or "deterministic"
+    energy_gate: str = "deterministic"          # Determines how the energy of the plastic phenotype should impact acceptance: "or", "and" or "deterministic"
     energy_type: str = "differential"           # Can be 'standard' or 'differential'
     energy_normalise_interactions: bool = True  # Normalise the interaction matrix inside of the energy calculations
     M: int = 100                                # mutation attempts per plastic search
     c: float = 1.0                              # single-gene mutation size
     eta: float = 0.5                            # contrastive learning rate for B
-    rounds: int = 30                            # R rounds of develop -> plasticity -> induct
+    rounds: int = 10                            # R rounds of plasticity -> induct -> relax. The walk's AUC saturates within ~5 rounds (Experiment 5), and every induction evaluation costs R walks: 50 rounds made evolution 5x slower for no measurable gain
     mutation_type: str = "phenotype"            # Can be "single-gene" or "phenotype"
     normalise_energy: bool = True               # Rayleigh quotient: direction only
     r_T: int = None                             # redevelopment time after updating
-    relax: bool = False                         # Toggle relaxation after induction (development of the original genotype under the new interaction matrix produced by induction)
-    induction_interactions: str = "all"         # Controls which interactions are changed during induction with regard to the mask; can be "inclusive", "exclusive" or "all"
+    relax: bool = True                          # Relax after each round: develop the plastic phenotype P' under the updated interaction matrix before the next walk (off: the next walk starts from P' itself)
  
  
  

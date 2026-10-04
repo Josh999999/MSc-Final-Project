@@ -10,11 +10,11 @@ import sys
 import traceback
 import numpy as np
  
-from Config import Config, make_rng
+from Config import Config, make_rng, ENERGY_GATES
 from Data import S1, S2
 from GRN import (handle_develop, masked_matrix, evaluate_fitness, mutate_profile, DTYPE)
 from Induction import handle_induction
-from Interactions import random_interactions
+from Interactions import random_interactions, appropriate_interactions
 from Plastic_Induction import plastic_search_return_wrapper
 from Evolution import sswm_evolve
 from Analysis import check_convergence
@@ -66,7 +66,7 @@ def standard_development_matches_the_published_equation():
 def phenotype_is_bounded():
     # only the "bounded" variant makes this guarantee
     cfg = Config(N = 8, targets = S1, T = 10, development = "bounded")
-    B = 3.0 * random_interactions(cfg, make_rng(0), normalise = True)
+    B = 3.0 * random_interactions(cfg, make_rng(0))
     P = handle_develop(5.0 * make_rng(1).normal(size = 8), B, cfg, induction = False)
     assert np.all(np.abs(P) <= 1.0 + 1e-9)
  
@@ -100,7 +100,7 @@ def mask_owns_the_diagonal():
 @test
 def inputs_are_not_mutated():
     cfg = Config(N = 8, targets = S1, induction = True, M = 10, T = 6, rounds = 2)
-    B = random_interactions(cfg, make_rng(0), normalise = True); G = make_rng(1).uniform(-1, 1, 8)
+    B = random_interactions(cfg, make_rng(0)); G = make_rng(1).uniform(-1, 1, 8)
     P = handle_develop(G, B, cfg, induction = False)
     B0, G0, P0 = B.copy(), G.copy(), P.copy()
     handle_induction(B, P, G, cfg, make_rng(0), S, limit_return = False, AUC = -1)
@@ -110,9 +110,25 @@ def inputs_are_not_mutated():
  
  
 @test
+def plastic_search_fitness_stays_on_the_walks_scale():
+    # Under the published development form the developed phenotype is unbounded
+    # (|P_i| ~ 4.5 under appropriate interactions), so the unclipped start scored
+    # F = 2.71 while every clipped candidate scored at most 1: the strict gates
+    # could never accept a move and the fitness curve mixed two scales.
+    cfg = Config(N = 8, targets = S1, induction = True, M = 20, T = 10)
+    B = appropriate_interactions(cfg, make_rng(0), S = S, inappropriate = False)
+    P = handle_develop(make_rng(1).uniform(-1, 1, 8), B, cfg, induction = False)
+    assert np.abs(P).max() > 1.0, "the magnitude confound must be present for this test to bite"
+    for gate in ENERGY_GATES:
+        h = plastic_search_return_wrapper(B, P, cfg.set(energy_gate = gate), make_rng(0), S, limit_return = False)
+        curve = np.asarray(h["curve"])
+        assert curve.min() >= 0.0 and curve.max() <= 1.0, (gate, float(curve.min()), float(curve.max()))
+ 
+ 
+@test
 def all_arrays_are_float64():
     cfg = Config(N = 8, targets = S1, induction = True, M = 10, T = 6)
-    B = random_interactions(cfg, make_rng(0), normalise = True)
+    B = random_interactions(cfg, make_rng(0))
     P = handle_develop(make_rng(1).uniform(-1, 1, 8), B, cfg, induction = False)
     h = plastic_search_return_wrapper(B, P, cfg, make_rng(0), S, limit_return = False)
     for arr in (B, P, np.asarray(h["P"]), np.asarray(h["curve"])):
@@ -138,7 +154,7 @@ def both_processes_share_a_contract():
         for lim in (True, False):
             cfg = Config(N = 8, targets = S1, induction = True, induction_process = proc,
                          M = 6, T = 6, rounds = 2)
-            B = random_interactions(cfg, make_rng(0), normalise = True); G = make_rng(1).uniform(-1, 1, 8)
+            B = random_interactions(cfg, make_rng(0)); G = make_rng(1).uniform(-1, 1, 8)
             P = handle_develop(G, B, cfg, induction = False)
             h = handle_induction(B, P, G, cfg, make_rng(0), S, limit_return = lim, AUC = -1)
             for k in ("auc_inner", "B", "P", "F"):
@@ -154,15 +170,22 @@ def differential_energy_is_live_under_default_mutation():
  
  
 @test
-def relaxed_induction_develops_genotype_toward_target():
-    # eta and relax must be set so induction actually does something within a lifetime
+def induction_raises_the_plastic_auc_across_rounds():
+    # The point of r-round induction: each round's plastic walk should start
+    # higher than the last, because the contrastive update has written the
+    # walk's gains into B. At the original eta = 0.01 the matrix barely moved
+    # and the walk's AUC was flat across rounds (0.747 -> 0.756 here):
+    # induction was running but having no effect. Relaxation must be on for
+    # this to hold: it continues development from the plastic phenotype, so
+    # the rounds telescope and the sign the walk found is kept.
     cfg = Config(N = 8, targets = S1, induction = True, M = 20, T = 10, rounds = 10)
-    assert cfg.relax, "relax must be on for r-round to test assimilation"
-    B = random_interactions(cfg, make_rng(0), normalise = True); G = make_rng(1).uniform(-1, 1, 8)
+    assert cfg.relax, "relaxation must be on for the rounds to telescope"
+    B = random_interactions(cfg, make_rng(0)); G = make_rng(1).uniform(-1, 1, 8)
     P = handle_develop(G, B, cfg, induction = False)
     h = handle_induction(B, P, G, cfg, make_rng(0), S, limit_return = False, AUC = -1)
-    oc = np.asarray(h["outer_curve"])
-    assert oc[-1] > oc[0] + 0.05, f"relaxed fitness did not rise: {oc[0]:.3f} -> {oc[-1]:.3f}"
+    ic = np.asarray(h["inner_curve"])
+    assert ic[-1] > ic[0] + 0.05, f"plastic AUC did not rise across rounds: {ic[0]:.3f} -> {ic[-1]:.3f}"
+    assert ic.max() <= 1.0 + 1e-12, "the walk's AUC must stay on the normalised scale"
  
  
  

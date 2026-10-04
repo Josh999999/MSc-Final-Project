@@ -63,7 +63,6 @@ def make_config(targets: np.ndarray, induction: bool, seed: int) -> Config:
         switch_every = SWITCH_EVERY,
         record_every = RECORD_EVERY,
         seed = DEFAULT_SEED + seed,
-        normalise_interactions = False,
     )
     set_mask(cfg, diag_mask(cfg))
  
@@ -80,7 +79,7 @@ def summarise(results: dict, cfg: Config, ideal: np.ndarray) -> dict:
  
     out = {
         "final_native_fitness": float(evaluate_fitness(P, cfg.targets[results["target_index"]], cfg)),
-        "mean_fitness":         float(np.mean(results["fitnesses"])),
+        "mean_fitness":         float(np.mean(results["incumbent_native_fitness"])),   # native fitness in BOTH arms: the selection score differs between them
         "mean_switch_loss":     float(tl.mean()) if tl.size else float("nan"),
         "final_B_magnitude":    float(np.linalg.norm(B)),
         "acceptance_rate":      float(np.mean(results["selections"])),
@@ -152,9 +151,10 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
         trajectories = [fitnesses],
         marker = "x",
         x_label = "Generation",
-        y_label = "Fitness (AUC)",
+        y_label = "Fitness (plastic AUC)" if cfg.induction else "Fitness (native)",
         title = "Fitness of the chosen GRN over Generations",        
-        subtitle = "Fitness is the AUC of the selected GRN from the Induction Process",
+        subtitle = ("Selection score: mean plastic AUC over the induction rounds" if cfg.induction
+                    else "Selection score: fitness of the developed phenotype"),
         grid = True,
         save_loc = SAVELOC, 
         figsize = (12, 6),
@@ -295,8 +295,11 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
 
 
 
-    # Interaction matrix derived from Hebb's rule.
-    PLOT_NAME = "interaction_heatmap.png"
+    # Interaction matrix derived from Hebb's rule (the structure the evolved
+    # matrix is read against).
+    B_heb = hebbian_interactions(cfg = cfg, S = cfg.targets)
+
+    PLOT_NAME = "hebbian_heatmap.png"
     SAVELOC = os.path.join(OUTPUT_FOLDER, PLOT_NAME)    
     show_interaction_heatmap(
         B = B_heb, 
@@ -309,9 +312,8 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
 
 
     # The matrix of evolved regulatory interactions.
-    PLOT_NAME = "hebbian_heatmap.png"
+    PLOT_NAME = "interaction_heatmap.png"
     SAVELOC = os.path.join(OUTPUT_FOLDER, PLOT_NAME)    
-    B_heb = hebbian_interactions(cfg = cfg, S = cfg.targets)
 
     show_interaction_heatmap(
         B = B, 
@@ -371,7 +373,7 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
         plot_trajectories(
             x = recorded_gens,
             trajectories = [F_change_inner, F_change_outer],
-            keys = ["Change in Phenotype Fitness", "Change in Plastic AUC"], 
+            keys = ["Change in plastic AUC across the rounds (inner)", "Change in relaxed fitness across the rounds (outer)"], 
             linestyle = ["-.", "--"], 
             marker = ".",
             x_label = "Generation",
@@ -399,14 +401,14 @@ def plot_run(results: dict, cfg: Config, folder: str, label: str, rng: np.random
         plot_trajectories(
             x = recorded_gens,
             trajectories = [AUC_inner, AUC_outer],
-            keys = ["AUC of the Phenotype Fitness Curve", "AUC of the Plastic AUC Curve"], 
+            keys = ["Plastic AUC (inner: mean fitness over the walks)", "Relaxed AUC (outer: mean fitness of the relaxed phenotype)"], 
             linestyle = ["-.", "--"], 
             marker = "x",
             x_label = "Generation",
             y_label = "AUC",
             grid = True,
             title = "Comparative AUC of two Induction curves (Tracking Phenotype Fitness and Plastic AUC over R round respectively) over Generations",        
-            subtitle = "AUC of the Plastic AUC curve is used as Fitness inside the Evolutionary process",
+            subtitle = "The plastic AUC is the fitness used for selection under induction",
             save_loc = SAVELOC, 
             moving_average = True,
             smooth = 0.1,

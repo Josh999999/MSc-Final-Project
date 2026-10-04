@@ -48,7 +48,7 @@ if __name__ == "__main__":
             # Same stream per panel so the panels are comparable.
             result = plastic_measure_surface(
                 cfg, make_rng(cfg.seed),
-                measure = key, n_seeds = 8, grid = 15
+                measure = key, n_seeds = 8, grid = 21
             )
             surfaces.append(result)
 

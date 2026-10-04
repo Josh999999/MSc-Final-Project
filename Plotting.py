@@ -591,10 +591,6 @@ def show_interaction_heatmap(B: np.array, save_loc: str, title = None):
  
  
 def random_profiles(R: int, N: int, rng: np.random.Generator) -> np.ndarray:
-    if N is None: 
-        N = Global.N
- 
-        
     G = rng.uniform(low = -1.0, high = 1.0, size = (R, N))
  
     return G

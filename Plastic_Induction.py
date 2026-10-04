@@ -84,7 +84,16 @@ def plastic_search(
         S: np.ndarray = None,
     ) -> dict:
     S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
-    P = np.asarray(P, dtype = DTYPE).copy()        
+    P = np.asarray(P, dtype = DTYPE).copy()
+
+    # The walk lives in [-1, 1]^N: every candidate below is clipped into that range, and the
+    # normalised fitness (P.S + N) / 2N only lies in [0, 1] on that scale. Under the published
+    # development form the developed phenotype is unbounded (|P_i| reaches ~5), so an unclipped
+    # start has F(P) > 1 and no clipped candidate can ever satisfy F(P + delta) > F(P); the
+    # fitness curve then mixes two scales. The start is therefore taken into the walk's range
+    # first, mirroring the contrastive update in R_round_induction.
+    if cfg.bound_phenotype:
+        np.clip(P, -1.0, 1.0, out = P)
  
     F = evaluate_fitness(P, S, cfg)
     A = phenotype_alignment(P, B, cfg) 
@@ -93,8 +102,6 @@ def plastic_search(
     align_curve = [A]
     accepted = 0
     accepted_alignments = []
- 
-    tau = None
  
  
     for _ in range(cfg.M):      

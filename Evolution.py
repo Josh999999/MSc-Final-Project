@@ -24,7 +24,6 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
  
     B = masked_matrix(B, cfg.mask)
     B_flat = B.reshape(-1)                  # view: mutated in place
-    B_ind = None
  
     G = np.zeros(cfg.N)
  
@@ -49,6 +48,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     B_alignment = []
     B_magnitude = []
     converged = []
+    incumbent_native = []                   # native fitness of the incumbent, both arms, same scale
  
     # Recording the induction process
     native_fitness = []
@@ -98,49 +98,11 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
  
  
 
-    def _undo_B(B_flat, undo):
-
-        if undo is None:
-
-            return
-
-        idx, mirror, deltas, mdeltas = undo
-        np.add.at(B_flat, idx, -deltas)
-
-        if mirror is not None:
-            np.add.at(B_flat, mirror, -mdeltas)
-
-
-
-    def _redo_B(B_flat, undo):
-
-        if undo is None:
-
-            return
-
-        idx, mirror, deltas, mdeltas = undo
-        np.add.at(B_flat, idx, deltas)
-
-        if mirror is not None:
-            np.add.at(B_flat, mirror, mdeltas)
-
-
-
-    def induction_history(cfg: Config, history: dict, record: bool = True, record_now: bool = True) -> tuple[float, np.ndarray]:    
-        auc = float(history["auc_inner"])
-        native = float(np.asarray(history["outer_curve"])[0]) if "outer_curve" in history else float(np.asarray(history["curve"])[0])
-        outer = float(history["auc_outer"]) if "auc_outer" in history else auc
-
-        if cfg.selection_score == "auc":
-            F_mut = auc
-
-        elif cfg.selection_score == "native":
-            F_mut = native
-
-        else:   
-            F_mut = native + cfg.plastic_bonus * (outer - native)
-
-        B_ind = history["B"]
+    def induction_history(cfg: Config, history: dict, record: bool = True, record_now: bool = True) -> tuple[float, float]:    
+        # Under induction a genotype's fitness IS the mean plastic AUC over the
+        # rounds: how well the lifetime walks climb from what (G, B) develops.
+        # The induced matrix is used for scoring only and is never inherited.
+        F_mut = float(history["auc_inner"])
         Final_AUC = 0
  
         if cfg.record and record and record_now:
@@ -171,7 +133,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
                 Final_AUC = history['inner_curve'][-1]
  
  
-        return F_mut, B_ind, Final_AUC
+        return F_mut, Final_AUC
  
  
  
@@ -180,15 +142,10 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     
         if cfg.induction:
             history = handle_induction(B, P, G, cfg, induction_rng(), S, limit_return = not cfg.record, AUC = -1)       
-            F_mut, B_ind, Final_AUC = induction_history(cfg, history, record = False)
+            F_mut, Final_AUC = induction_history(cfg, history, record = False)
  
         else:
             F_mut = evaluate_fitness(P, S, cfg)
- 
- 
-        # Re-assign the interaction matrix with the induction vairant if the Baldwin effect is not active
-        if cfg.induction and not cfg.baldwin_effect:
-            B[...] = B_ind
  
  
         return F_mut, Final_AUC
@@ -196,7 +153,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
  
  
  
-    # The initial model should be allowed it's own induction proccess for the sake of fairness and reliable comparison
+    # The initial model is put through its own induction process for the sake of fairness and reliable comparison
     # Now all incumbents have been through the induction process (if not recently) exactly once
     # Used when induction needs to be evaluated early (e.g. for a switch of targets) to ensure fair comparison
     F, Final_AUC = induction_switch(B, P, G, S[ei], cfg, rng, AUC = F)    
@@ -271,64 +228,32 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
  
         # !-- Perform the Induction Process -- !
  
-        # Handle Induction
-        B_ind = None
-        F_cmp = F                                   # what the challenger is compared against
-
-        # "gated": induction only runs on generations where B actually mutated.
-        # G-only mutations are judged on native fitness (full gradient on G);
-        # B-mutated generations are judged by the inductive score, with the
-        # incumbent re-scored the same way so the comparison is like for like.
-        run_induction = cfg.induction and (cfg.selection_score != "gated" or undo is not None)
-
-        if run_induction:
-
-            if cfg.selection_score == "gated":
-                # incumbent under the SAME judge, on the pre-mutation matrix
-                _undo_B(B_flat, undo)
-                inc = handle_induction(B, P, G, cfg, induction_rng(), S[ei], limit_return = not cfg.record, AUC = -1)
-                F_cmp, _, _ = induction_history(cfg, inc, record = False)
-                _redo_B(B_flat, undo)
-
-            # Compute induction on the challenger
+        # Handle Induction: when induction is on, every challenger is scored
+        # by the plastic AUC of its lifetime, so the incumbent's stored score F
+        # was produced the same way and the comparison is like for like.
+        if cfg.induction:
             history = handle_induction(B, P_mut, G, cfg, induction_rng(), S[ei], limit_return = not cfg.record, AUC = -1)        
-            F_mut, B_ind, Final_AUC = induction_history(cfg, history, record_now = record_now)
+            F_mut, Final_AUC = induction_history(cfg, history, record_now = record_now)
 
         else:
             F_mut = evaluate_fitness(P_mut, S[ei], cfg)
-
-
-            if cfg.induction and cfg.record and record_now:
-                # keep the induction series aligned even on gated-off generations
-                native_fitness.append(F_mut); plastic_fitness.append(F_mut)
-                F_change_inner.append(0.0); F_change_outer.append(0.0)
-                AUC_inner.append(F_mut); AUC_outer.append(F_mut)
  
  
  
  
         # !-- Perform the Selection Process -- !
  
-        # Compute acceptance boundary
-        accept = (F_mut >= F_cmp) if cfg.drift_selection else (F_mut > F_cmp)
+        # SSWM acceptance: the challenger replaces the incumbent on a tie as
+        # well as on a strict gain, as in the published model, so neutral
+        # mutations fix.
+        accept = F_mut >= F
         selected = False
  
         if accept:
- 
-            # What the accepted challenger inherits from its induction run.
-            if B_ind is not None and (cfg.inherit_induced != "none" or not cfg.baldwin_effect):
-
-                if cfg.inherit_induced == "exclusive":
-                    B[~cfg.mask] = np.asarray(B_ind, dtype = DTYPE)[~cfg.mask]
-
-                else:
-                    B[...] = B_ind
- 
- 
             G, P, F = G_mut, P_mut, F_mut
  
  
-            # Record weather the mutation was selected      
+            # Record whether the mutation was selected      
             selected = True
  
         elif undo is not None:
@@ -356,8 +281,11 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             # Magnitude of the current interaction matrix
             B_magnitude.append(np.linalg.norm(B, ord = "fro"))
  
-            # Fitness the generation ended on
+            # Fitness the generation ended on (the selection score: native
+            # fitness in the control arm, plastic AUC under induction) and the
+            # incumbent's native fitness, which is comparable across arms.
             fitnesses.append(F)
+            incumbent_native.append(evaluate_fitness(P, S[ei], cfg))
  
  
  
@@ -425,6 +353,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
     B_alignment = np.array(B_alignment, dtype = DTYPE)
     B_magnitude = np.array(B_magnitude, dtype = DTYPE)
     converged = np.array(converged, dtype = bool)
+    incumbent_native = np.array(incumbent_native, dtype = DTYPE)
     native_fitness = np.array(native_fitness, dtype = DTYPE)
     plastic_fitness = np.array(plastic_fitness, dtype = DTYPE)
     F_change_inner = np.array(F_change_inner, dtype = DTYPE)
@@ -461,6 +390,7 @@ def sswm_evolve(cfg: Config, rng: np.random.Generator, B: np.ndarray = None) -> 
             "B_alignment": B_alignment,
             "B_magnitude": B_magnitude,
             "converged": converged, 
+            "incumbent_native_fitness": incumbent_native,
             "native_fitness": native_fitness,
             "plastic_fitness": plastic_fitness,
             "F_change_inner": F_change_inner,

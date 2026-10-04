@@ -93,18 +93,18 @@ def compare_arms(a: dict, b: dict, name_a: str = "induction", name_b: str = "con
 
 def comparison_table(rows: dict, save_loc: str, title: str, sig: int = 6, name_a: str = "induction", name_b: str = "control",) -> str:
     """Render compare_arms output as an aligned text table."""
-    columns = [f"{'metric':<22}", f"{name_a:>14}", f"{name_b:>14}", f"{'diff':>12}", f"{'diff (final)':>14}"]
+    columns = ["metric", name_a, name_b, "diff", "diff (final)"]
 
 
-    rows = []
+    table_rows = []
     for key, r in rows.items():
-        fin = f"{r['diff_final']:>+14.4f}" if "diff_final" in r else f"{'':>14}"
-        rows.append(f"{key:<22}", f"{r[name_a]:>14.4f}", f"{r[name_b]:>14.4f}", f"{r['diff']:>+12.4f}{fin}")
+        fin = r["diff_final"] if "diff_final" in r else ""
+        table_rows.append([key, r[name_a], r[name_b], r["diff"], fin])
 
 
     create_search_table(
         column_tites = columns,
-        row_results = rows,
+        row_results = table_rows,
         save_loc = save_loc,
         title = title,
         sig = sig
@@ -115,7 +115,7 @@ def comparison_table(rows: dict, save_loc: str, title: str, sig: int = 6, name_a
 
 def arm_summary(per_seed: list, keys: tuple) -> dict:
     """
-    Per-arm summary across seeds: for each scalar key, the value from every eed plus mean and standard deviation.  
+    Per-arm summary across seeds: for each scalar key, the value from every seed plus mean and standard deviation.  
     
     This is the table to quote for a single arm, before comparing arms.
     """

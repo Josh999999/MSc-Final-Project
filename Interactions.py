@@ -9,9 +9,15 @@ from GRN import DTYPE, masked_matrix
 
  
  
-def _finalise(B: np.ndarray, cfg: Config, symmetric: bool = None, normalise: bool = None) -> np.ndarray:
+def _finalise(B: np.ndarray, cfg: Config, symmetric: bool = None) -> np.ndarray:
+    """
+    Every builder ends here: optional symmetrisation, the topology mask, and a
+    rescaling to Frobenius norm cfg.Y. A builder therefore supplies the SIGN
+    pattern and the relative magnitudes of the interactions, and Y alone sets
+    the overall magnitude -- the same meaning Y has for the synthesised
+    matrices of the tenet surfaces.
+    """
     symmetric = cfg.symmetric_mask if symmetric is None else symmetric
-    normalise = cfg.normalise_interactions if normalise is None else normalise
  
     B = np.asarray(B, dtype = DTYPE).copy()
  
@@ -23,17 +29,12 @@ def _finalise(B: np.ndarray, cfg: Config, symmetric: bool = None, normalise: boo
     B = masked_matrix(B, cfg.mask, inplace = True)
  
  
-    if normalise:
-        r = np.linalg.norm(B, ord = "fro")
-        B = B * (cfg.Y / r) if r > 0 else np.zeros_like(B)
- 
- 
-    return B
+    return adjust_interaction_magnitude(B, cfg, Y = cfg.Y)
  
  
  
  
-def random_interactions(cfg: Config, rng: np.random.Generator, normalise: bool = None) -> np.ndarray:
+def random_interactions(cfg: Config, rng: np.random.Generator) -> np.ndarray:
     signs = rng.choice([-1.0, 1.0], size = (cfg.N, cfg.N), p = [1 - cfg.prob_pos_B, cfg.prob_pos_B])
  
  
@@ -44,12 +45,12 @@ def random_interactions(cfg: Config, rng: np.random.Generator, normalise: bool =
         B = rng.uniform(low = 0.0, high = 1.0, size = (cfg.N, cfg.N)) * signs
  
  
-    return _finalise(B, cfg, normalise = normalise)
+    return _finalise(B, cfg)
  
  
  
  
-def appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarray = None, inappropriate: bool = False, normalise: bool = None) -> np.ndarray: 
+def appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarray = None, inappropriate: bool = False) -> np.ndarray: 
     S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
  
     # Set value of signs in alignment with the target
@@ -67,12 +68,12 @@ def appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarra
         B = rng.uniform(low = 0.0, high = 1.0, size = (cfg.N, cfg.N)) * signs
  
  
-    return _finalise(B, cfg, normalise = normalise)
+    return _finalise(B, cfg)
  
  
  
  
-def noisy_appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarray = None, normalise: bool = None, inappropriate: bool = False) -> np.ndarray: 
+def noisy_appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.ndarray = None, inappropriate: bool = False) -> np.ndarray: 
     S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
  
     signs = np.outer(S, S)
@@ -98,12 +99,12 @@ def noisy_appropriate_interactions(cfg: Config, rng: np.random.Generator, S: np.
         B = rng.uniform(low = 0.0, high = 1.0, size = (cfg.N, cfg.N)) * signs
  
  
-    return _finalise(B, cfg, normalise = normalise)
+    return _finalise(B, cfg)
  
  
  
  
-def modular_interactions(cfg: Config, rng: np.random.Generator, normalise: bool = None) -> np.ndarray:
+def modular_interactions(cfg: Config, rng: np.random.Generator) -> np.ndarray:
     module_of = module_assignment(cfg.N, cfg.n_modules)
     same_module = module_of[:, None] == module_of[None, :]
  
@@ -111,7 +112,7 @@ def modular_interactions(cfg: Config, rng: np.random.Generator, normalise: bool 
     signs = rng.choice([-1.0, 1.0], size = (cfg.N, cfg.N), p = [1 - cfg.prob_pos_B, cfg.prob_pos_B])
  
  
-    return _finalise(B * signs, cfg, normalise = normalise)
+    return _finalise(B * signs, cfg)
  
  
  
@@ -120,10 +121,9 @@ def modular_appropriate_interactions(
         cfg: Config,
         rng: np.random.Generator,
         S: np.ndarray = None,
-        inappropriate: bool = False,
-        normalise: bool = None
+        inappropriate: bool = False
     ) -> np.ndarray:
-    B = appropriate_interactions(cfg, rng, S = S, inappropriate = inappropriate, normalise = False)
+    B = appropriate_interactions(cfg, rng, S = S, inappropriate = inappropriate)
  
     module_of = module_assignment(cfg.N, cfg.n_modules)
     same_module = module_of[:, None] == module_of[None, :]
@@ -131,7 +131,7 @@ def modular_appropriate_interactions(
     B = np.where(same_module, B, B * cfg.inter)
  
  
-    return _finalise(B, cfg, normalise = normalise)
+    return _finalise(B, cfg)
  
  
  
@@ -163,9 +163,3 @@ def adjust_interaction_magnitude(B: np.ndarray, cfg: Config, Y: float = None, in
  
     return B * (Y / r) if r > 0 else np.zeros_like(B)
  
- 
- 
- 
-def normalise_interactions(B: np.ndarray, cfg: Config) -> np.ndarray:    
-    
-    return adjust_interaction_magnitude(B, cfg, Y = 1)

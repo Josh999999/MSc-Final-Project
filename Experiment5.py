@@ -39,7 +39,7 @@ if __name__ == "__main__":
  
  
  
-    def _experiment6(cfg: Config, B: np.ndarray, interaction_type: str, n_seeds: int = SEEDS) -> list:
+    def _experiment5(cfg: Config, B: np.ndarray, interaction_type: str, n_seeds: int = SEEDS) -> list:
         curves, induced, keys = [], [], []
         round_aucs = []                       # AUC of each round's walk, per seed
  
@@ -165,47 +165,36 @@ if __name__ == "__main__":
     BUILDERS = (
         ("appropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                             inappropriate = False,
-                                                             normalise = cfg.normalise_interactions))),
+                                                             inappropriate = False))),
         ("inappropriate interactions",
             _dense(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                             inappropriate = True,
-                                                             normalise = cfg.normalise_interactions))),
+                                                             inappropriate = True))),
         ("noisy appropriate interactions",
             _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                   inappropriate = False,
-                                                                   normalise = cfg.normalise_interactions))),
+                                                                   inappropriate = False))),
         ("noisy inappropriate interactions",
             _dense(lambda cfg, rng: noisy_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                   inappropriate = True,
-                                                                   normalise = cfg.normalise_interactions))),
+                                                                   inappropriate = True))),
         ("random interactions",
-            _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
-                                                        normalise = cfg.normalise_interactions))),
+            _dense(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng))),
  
         ("modular random interactions",
-            _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng,
-                                                         normalise = cfg.normalise_interactions))),
+            _dense(lambda cfg, rng: modular_interactions(cfg = cfg, rng = rng))),
         ("modular appropriate interactions",
             _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                     inappropriate = False,
-                                                                     normalise = cfg.normalise_interactions))),
+                                                                     inappropriate = False))),
         ("modular inappropriate interactions",
             _dense(lambda cfg, rng: modular_appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                                     inappropriate = True,
-                                                                     normalise = cfg.normalise_interactions))),
+                                                                     inappropriate = True))),
  
         ("sparse random interactions",
-            _sparse(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng,
-                                                         normalise = cfg.normalise_interactions))),
+            _sparse(lambda cfg, rng: random_interactions(cfg = cfg, rng = rng))),
         ("sparse appropriate interactions",
             _sparse(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                              inappropriate = False,
-                                                              normalise = cfg.normalise_interactions))),
+                                                              inappropriate = False))),
         ("sparse inappropriate interactions",
             _sparse(lambda cfg, rng: appropriate_interactions(cfg = cfg, rng = rng, S = cfg.target,
-                                                              inappropriate = True,
-                                                              normalise = cfg.normalise_interactions))),
+                                                              inappropriate = True))),
     )
  
     os.makedirs(FIGURES_OUTPUT or ".", exist_ok = True)
@@ -221,7 +210,7 @@ if __name__ == "__main__":
         B, run_cfg = build(cfg, make_rng(cfg.seed))
  
         print(f"running: {interaction_type}")
-        row, improved = _experiment6(run_cfg, B, interaction_type)
+        row, improved = _experiment5(run_cfg, B, interaction_type)
         summary_rows.append(row)
         improved_counts.append((interaction_type, improved))
         print(f"  wrote plastic_curve_ and induced_matrix_ for {interaction_type}")

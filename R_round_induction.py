@@ -6,7 +6,6 @@ import numpy as np
 from Config import Config
 from GRN import DTYPE, handle_develop, evaluate_fitness
 from Plastic_Induction import plastic_search_return_wrapper, phenotype_alignment
-from Interactions import normalise_interactions
  
  
  
@@ -23,6 +22,7 @@ def r_round_induction(
     B = np.asarray(B, dtype = DTYPE).copy()
     S = cfg.target if S is None else np.asarray(S, dtype = DTYPE)
     P = np.asarray(P, dtype = DTYPE)
+    G = np.asarray(G, dtype = DTYPE)
     
     F = evaluate_fitness(P, S, cfg)
     A = phenotype_alignment(P, B, cfg) 
@@ -37,6 +37,11 @@ def r_round_induction(
     inner_curve = [AUC]
     outer_curve = [F]
     align_curve = [A]
+
+    # Assimilation: what the GENOTYPE develops to under each round's matrix.
+    # This is the quantity the next generation inherits, whichever phenotype
+    # the rounds themselves continue from.
+    assimilation_curve = [F]
     
     R = cfg.rounds
     lr = cfg.eta
@@ -45,7 +50,7 @@ def r_round_induction(
     # For each round (R)
     for _ in range(0, R):
         
-        # Run placticity
+        # Run plasticity
         search = plastic_search_return_wrapper(B, P, cfg, rng, S, limit_return = False)
         AUC = search["auc_inner"]
         P_ = search['P']
@@ -61,37 +66,16 @@ def r_round_induction(
             Pc, Pc_ = P, P_
         
         
-        # Update the matrix using a contrastive update
+        # Update the matrix using the contrastive update B += eta (P'P'^T - PP^T)
         dPP_ = np.outer(Pc_, Pc_) - np.outer(Pc, Pc)
+        B += lr * dPP_
  
  
-        # Determine how the interactions are updated
-        mask = np.asarray(cfg.mask.copy(), dtype = bool)
-        dB = 0
- 
-        if cfg.induction_interactions == "inclusive":
-            dB = lr * dPP_ * mask
- 
-        elif cfg.induction_interactions == "exclusive":
-            dB = lr * dPP_ * ~mask
- 
-        elif cfg.induction_interactions == "all":
-            dB = lr * dPP_
- 
-        else:
-            dB = lr * dPP_
- 
-        B += dB
- 
- 
-        # Re-Normalise the matrix (after learning)
-        if cfg.normalise_interactions:
-            B = normalise_interactions(B, cfg)
- 
- 
-        # Redevelop the Genotype under the new interaction matrix
+        # Relaxation: continue development from the plastic phenotype P' under
+        # the updated matrix. Within a lifetime the organism does not restart
+        # from the embryo each round, and P' keeps the sign the walk found.
+        # Relaxing is ordinary development: use T, not r_T.
         if cfg.relax:
-            # Relaxing the genotype is ordinary development: use T, not r_T.
             P = handle_develop(P_, B, cfg, induction = False)
             F = evaluate_fitness(P, S, cfg)
             outer_curve.append(F)
@@ -105,14 +89,19 @@ def r_round_induction(
         # Track alignment of the Phenotypes induction produces
         A = phenotype_alignment(P, B, cfg)
         align_curve.append(A)
+
+        # Assimilation diagnostic: what the genotype itself develops to under
+        # this round's matrix (never used as the chain's state).
+        assimilation_curve.append(evaluate_fitness(handle_develop(G, B, cfg, induction = False), S, cfg))
  
  
     inner_curve = np.asarray(inner_curve, dtype = DTYPE)
     outer_curve = np.asarray(outer_curve, dtype = DTYPE)
     align_curve = np.asarray(align_curve, dtype = DTYPE)
+    assimilation_curve = np.asarray(assimilation_curve, dtype = DTYPE)
  
  
-    return B, P, F, inner_curve, outer_curve, align_curve, round_curves
+    return B, P, F, inner_curve, outer_curve, align_curve, round_curves, assimilation_curve
  
  
  
@@ -127,7 +116,7 @@ def r_round_induction_return_wrapper(
         limit_return: bool = False, 
         AUC: float = -1
     ) -> dict:
-    B, P, F, inner_curve, outer_curve, align_curve, round_curves = r_round_induction(B, P, G, cfg, rng, S, AUC)
+    B, P, F, inner_curve, outer_curve, align_curve, round_curves, assimilation_curve = r_round_induction(B, P, G, cfg, rng, S, AUC)
  
  
     if limit_return:
@@ -153,6 +142,8 @@ def r_round_induction_return_wrapper(
         "outer_curve": outer_curve,
         "align_curve": align_curve,
         "align_change": align_curve[-1] - align_curve[0],
+        "assimilation_curve": assimilation_curve,        # fitness the genotype develops to under each round's matrix
+        "assimilation_change": assimilation_curve[-1] - assimilation_curve[0],
         "F_first_inner": inner_curve[0],
         "F_final_inner": inner_curve[-1],
         "F_first_outer": outer_curve[0],

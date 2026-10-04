@@ -1,5 +1,8 @@
 """External Imports (Libraries and APIs)"""
 import os
+import sys
+import json
+import glob
 import numpy as np
  
  
@@ -51,24 +54,13 @@ GRID = [
     ("mutation: single-gene",  {"mutation_type": "single-gene", "energy_type": "standard"}),
     ("mutation: phenotype",    {"mutation_type": "phenotype"}),
  
-    # selection score
-    ("score: auc",             {"selection_score": "auc"}),
-    ("score: native",          {"selection_score": "native"}),
-    ("score: native_bonus",    {"selection_score": "native_bonus"}),
-    ("score: gated",           {"selection_score": "gated"}),
- 
-    # inheritance
-    ("inherit: none",          {"inherit_induced": "none"}),
-    ("inherit: all",           {"inherit_induced": "all"}),
-    ("inherit: exclusive",     {"inherit_induced": "exclusive", "induction_interactions": "exclusive", "_sparse": 4}),
- 
-    # development form
-    ("development: decay",     {"development": "decay"}),
+    # development form ("standard" is the published form; there is no "decay" option)
+    ("development: standard",  {"development": "standard"}),
     ("development: bounded",   {"development": "bounded"}),
  
-    # relaxation target
-    ("relax: genotype",        {"relax": True}),
-    ("relax: phenotype",       {"relax": False}),
+    # relaxation after each round, on or off
+    ("relax: on",              {"relax": True}),
+    ("relax: off",             {"relax": False}),
  
     # topology
     ("topology: sparse K=4",   {"_sparse": 4}),
@@ -93,7 +85,6 @@ def make_config(targets, induction, seed, overrides):
         switch_every = SWITCH_EVERY, 
         record_every = RECORD_EVERY,
         seed = 100 + seed, 
-        normalise_interactions = False, 
         **ov
     )
  
@@ -178,53 +169,107 @@ def summarise_seeds(seed_rows: list) -> list:
  
  
  
-def _experiment9(title: str, img_name: str, only_avgs: bool = False):
+SCRATCH = os.path.join(FIGURES_OUTPUT, "scratch")
+N_TASKS = len(GRID) * SEEDS
+ 
+ 
+def task_to_row_seed(task: int) -> tuple:
+    """Array task id -> (grid row, seed). Tasks are numbered row-major."""
+    if not 0 <= task < N_TASKS:
+        raise SystemExit(f"task {task} out of range 0..{N_TASKS - 1}")
+ 
+    return divmod(task, SEEDS)
+ 
+ 
+def scratch_path(row: int, seed: int) -> str:
+ 
+    return os.path.join(SCRATCH, f"{row:02d}_{seed:02d}.json")
+ 
+ 
+def run_task(task: int) -> None:
+    """One (configuration, seed) pair: both arms, written to a scratch file."""
+    row, seed = task_to_row_seed(task)
+    name, overrides = GRID[row]
+    control_overrides = {k: v for k, v in overrides.items() if k == "_sparse"}
     targets, ideal = modular_environment(ENV_N, ENV_K, ENV_SEED)
-    rows = []                                   # local: the two tables are independent
+ 
+    result = run_diff(name, control_overrides, overrides, seed, targets, ideal)
+ 
+    os.makedirs(SCRATCH, exist_ok = True)
+    with open(scratch_path(row, seed), "w") as f:
+        json.dump({"row": row, "seed": seed, "name": name, "diff": [float(v) for v in result[2:]]}, f)
+ 
+    print(f"        {name:<24} seed {seed}  -> {scratch_path(row, seed)}", flush = True)
  
  
-    for name, overrides in GRID:
-        control_overrides = {k: v for k, v in overrides.items() if k == "_sparse"}
+def summarise() -> None:
+    """Build both tables from the scratch files. Nothing is re-run."""
+    rows_all, rows_avg, missing = [], [], []
+ 
+    for row, (name, _) in enumerate(GRID):
         seed_rows = []
  
- 
         for seed in range(SEEDS):
-            seed_rows.append(run_diff(name, control_overrides, overrides, seed, targets, ideal))
-            print(f"        {name:<24} seed {seed}", flush = True)
+            path = scratch_path(row, seed)
  
+            if not os.path.exists(path):
+                missing.append(f"{row}_{seed} ({name}, seed {seed})")
+                continue
  
-        if not only_avgs:
-            rows.extend(seed_rows)                     # extend, not append(a, b)
+            with open(path) as f:
+                rec = json.load(f)
  
+            seed_rows.append([name, seed, *np.asarray(rec["diff"], dtype = np.float64)])
  
-        rows.append(summarise_seeds(seed_rows))
+        if not seed_rows:
+            continue
  
+        rows_all.extend(seed_rows)
+        rows_all.append(summarise_seeds(seed_rows))
+        rows_avg.append(summarise_seeds(seed_rows))
  
+    if missing:
+        per_row = {}
+        for m in missing:
+            per_row.setdefault(m.split(" (")[1].rsplit(", seed", 1)[0], 0)
+            per_row[m.split(" (")[1].rsplit(", seed", 1)[0]] += 1
+ 
+        print(f"WARNING: {len(missing)} of {N_TASKS} tasks have no scratch file; those rows are averaged "
+              f"over the seeds that finished. Missing seeds per configuration:", flush = True)
+ 
+        for name, k in per_row.items():
+            print(f"        {name:<24} {k}/{SEEDS}", flush = True)
+ 
+    n_done = N_TASKS - len(missing)
+    title = (f"Effect of each induction configuration, paired against its control\n"
+             f"(induction \u2212 control; {N_GENERATIONS} generations, switch every {SWITCH_EVERY}, "
+             f"{SEEDS} seeds, {n_done}/{N_TASKS} runs)")
+    columns = ["Configuration", "Seed"] + [f"{m}\n(Induction Improvement)" for m in METRICS]
     os.makedirs(FIGURES_OUTPUT, exist_ok = True)
-    path = os.path.join(FIGURES_OUTPUT, img_name)
  
-    create_search_table(
-        column_tites = ["Configuration", "Seed"] + [f"{m}\n(Induction Improvement)" for m in METRICS],
-        row_results = rows,
-        save_loc = path,
-        sig = 6,
-        title = title
-    )
- 
-    print(f"        wrote {path}")
- 
- 
+    for img_name, rows in (("configurations_table.png", rows_all), ("configurations_avgs_table.png", rows_avg)):
+        path = os.path.join(FIGURES_OUTPUT, img_name)
+        create_search_table(column_tites = columns, row_results = rows, save_loc = path, sig = 6, title = title)
+        print(f"        wrote {path}", flush = True)
  
  
 if __name__ == "__main__":
+    args = sys.argv[1:]
  
-    TITLE = (f"Effect of each induction configuration, paired against its control\n"
-             f"(induction \u2212 control; {N_GENERATIONS} generations, switch every {SWITCH_EVERY}, "
-             f"{SEEDS} seeds)")
+    if args == ["--count"]:
+        print(N_TASKS)
  
-    # every seed shown, with a mean +- sd row per configuration
-    _experiment9(title = TITLE, img_name = "configurations_table.png", only_avgs = False)
+    elif args == ["--summarise"]:
+        summarise()
  
-    # one mean +- sd row per configuration
-    _experiment9(title = TITLE, img_name = "configurations_avgs_table.png", only_avgs = True)
+    elif len(args) == 1 and args[0].lstrip("-").isdigit():
+        run_task(int(args[0]))
  
+    elif not args:
+        for task in range(N_TASKS):
+            run_task(task)
+ 
+        summarise()
+ 
+    else:
+        raise SystemExit("usage: Experiment8.py [--count | --summarise | <task id>]")
