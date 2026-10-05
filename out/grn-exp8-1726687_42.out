@@ -1,0 +1,66 @@
+Running SLURM prolog script on ecsai02
+===============================================================================
+Job started on Sun Oct  4 17:03:41 BST 2026
+Job ID          : 1727029
+Job name        : grn-exp8
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /home/jm2e25/MSc-Final-Project/job_experiment8.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 2
+Num of tasks    : 1
+Hosts allocated : ecsai02
+Job Output Follows ...
+===============================================================================
+host      : ecsai02
+workdir   : /home/jm2e25/MSc-Final-Project
+started   : Sun Oct  4 17:03:46 BST 2026
+python    : /iridisfs/ixsoftware/conda/miniconda-py3/bin/python
+numpy 2.4.3 | matplotlib 3.10.1
+git       : f065ee0
+----------------------------------------------------------------------
+  PASS  fitness_of_target_is_one
+  PASS  bounded_development_removes_the_magnitude_confound
+  PASS  standard_development_matches_the_published_equation
+  PASS  phenotype_is_bounded
+  PASS  convergence_bound_is_a_tolerance
+  PASS  masked_matrix_handles_none
+  PASS  mask_owns_the_diagonal
+  PASS  inputs_are_not_mutated
+  PASS  plastic_search_fitness_stays_on_the_walks_scale
+  PASS  all_arrays_are_float64
+  PASS  induction_is_deterministic_given_genotype
+  PASS  both_processes_share_a_contract
+  PASS  differential_energy_is_live_under_default_mutation
+  PASS  induction_raises_the_plastic_auc_across_rounds
+  PASS  evolution_runs_all_four_configurations
+  PASS  per_generation_series_are_aligned
+  PASS  b_mutation_undo_is_exact
+  PASS  switch_generation_records_transfer
+
+18/18 passed
+----------------------------------------------------------------------
+        gate: and                seed 2  -> Experiment8/scratch/04_02.json
+----------------------------------------------------------------------
+finished  : Sun Oct  4 17:24:59 BST 2026  (exit 0)
+==============================================================================
+Running epilogue script on ecsai02.
+
+Submit time  : 2026-10-04T16:06:07
+Start time   : 2026-10-04T17:03:39
+End time     : 2026-10-04T17:24:59
+Elapsed time : 00:21:20 (Timelimit=08:00:00)
+
+Job ID: 1727029
+Array Job ID: 1726687_42
+Cluster: iridis_x
+User/Group: jm2e25/fp
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 2
+CPU Utilized: 00:21:10
+CPU Efficiency: 49.61% of 00:42:40 core-walltime
+Job Wall-clock time: 00:21:20
+Memory Utilized: 61.10 MB
+Memory Efficiency: 2.98% of 2.00 GB (2.00 GB/node)
+

@@ -1,0 +1,47 @@
+Running SLURM prolog script on ecsai02
+===============================================================================
+Job started on Sat Oct  3 22:47:17 BST 2026
+Job ID          : 1713152
+Job name        : grn-exp1
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /iridisfs/home/jm2e25/MSc-Final-Project/job_experiment7.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 4
+Num of tasks    : 1
+Hosts allocated : ecsai02
+Job Output Follows ...
+===============================================================================
+host      : ecsai02
+started   : Sat Oct  3 22:47:22 BST 2026
+python    : /iridisfs/ixsoftware/conda/miniconda-py3/bin/python
+numpy 2.4.3 | matplotlib 3.10.1
+----------------------------------------------------------------------
+         wrote interaction_trajectories.png to Experiment7/control/seed_0/interaction_trajectories.png
+         wrote fitness.png to Experiment7/control/seed_0/fitness.png
+         wrote selections.png to Experiment7/control/seed_0/selections.png
+         wrote grn_alignment.png to Experiment7/control/seed_0/grn_alignment.png
+         wrote interaction_magnitude.png to Experiment7/control/seed_0/interaction_magnitude.png
+         wrote convergence.png to Experiment7/control/seed_0/convergence.png
+----------------------------------------------------------------------
+finished  : Sat Oct  3 22:48:04 BST 2026  (exit 1)
+==============================================================================
+Running epilogue script on ecsai02.
+
+Submit time  : 2026-10-03T22:43:46
+Start time   : 2026-10-03T22:47:17
+End time     : 2026-10-03T22:48:04
+Elapsed time : 00:00:47 (Timelimit=1-00:00:00)
+
+Job ID: 1713152
+Cluster: iridis_x
+User/Group: jm2e25/fp
+State: FAILED (exit code 1)
+Nodes: 1
+Cores per node: 4
+CPU Utilized: 00:00:45
+CPU Efficiency: 23.94% of 00:03:08 core-walltime
+Job Wall-clock time: 00:00:47
+Memory Utilized: 185.91 MB
+Memory Efficiency: 1.13% of 16.00 GB (16.00 GB/node)
+

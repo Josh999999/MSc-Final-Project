@@ -1,0 +1,45 @@
+Running SLURM prolog script on ecsai06
+===============================================================================
+Job started on Sun Oct  4 20:00:47 BST 2026
+Job ID          : 1726687
+Job name        : grn-exp8
+WorkDir         : /iridisfs/home/jm2e25/MSc-Final-Project
+Command         : /home/jm2e25/MSc-Final-Project/job_experiment8.sh
+Partition       : ecsstudents_l4
+Num hosts       : 1
+Num cores       : 2
+Num of tasks    : 1
+Hosts allocated : ecsai06
+Job Output Follows ...
+===============================================================================
+host      : ecsai06
+workdir   : /home/jm2e25/MSc-Final-Project
+started   : Sun Oct  4 20:00:50 BST 2026
+python    : /iridisfs/ixsoftware/conda/miniconda-py3/bin/python
+numpy 2.4.3 | matplotlib 3.10.1
+git       : f065ee0
+----------------------------------------------------------------------
+  PASS  fitness_of_target_is_one
+  PASS  bounded_development_removes_the_magnitude_confound
+  PASS  standard_development_matches_the_published_equation
+  PASS  phenotype_is_bounded
+  PASS  convergence_bound_is_a_tolerance
+  PASS  masked_matrix_handles_none
+  PASS  mask_owns_the_diagonal
+  PASS  inputs_are_not_mutated
+  PASS  plastic_search_fitness_stays_on_the_walks_scale
+  PASS  all_arrays_are_float64
+  PASS  induction_is_deterministic_given_genotype
+  PASS  both_processes_share_a_contract
+  PASS  differential_energy_is_live_under_default_mutation
+  PASS  induction_raises_the_plastic_auc_across_rounds
+  PASS  evolution_runs_all_four_configurations
+  PASS  per_generation_series_are_aligned
+  PASS  b_mutation_undo_is_exact
+  PASS  switch_generation_records_transfer
+
+18/18 passed
+----------------------------------------------------------------------
+        B rate: prob 1.0         seed 9  -> Experiment8/scratch/16_09.json
+----------------------------------------------------------------------
+finished  : Sun Oct  4 20:16:04 BST 2026  (exit 0)
